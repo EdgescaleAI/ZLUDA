@@ -280,3 +280,23 @@ on gfx1151 through ZLUDA, end-to-end, on a real image — the next-token distrib
 across the full 151k vocab.
 
 Repro: `HSA_OVERRIDE_GFX_VERSION=11.5.1 LD_LIBRARY_PATH=<zluda>:<nvrtc>:/opt/rocm/lib python3 zluda_e2e_sdpa.py`
+
+## ★★★ Rung 8.75 — real-image greedy DECODE through ZLUDA (KV-cache with image context) — PASS
+Rung 7 proved token-for-token greedy decode on the real Qwen3-VL-2B *text* tower; rungs 8/8.5 proved a single
+full real-*image* forward. `zluda_e2e_decode.py` closes the gap: HF `model.generate(do_sample=False)` over a
+real image+prompt with `F.linear` routed through ZLUDA→rocBLAS, exercising the *incremental KV-cache decode
+path with image tokens in context*, vs the same model decoding unpatched on torch-CPU fp32.
+
+| metric | value |
+|---|---|
+| new tokens decoded | 8 |
+| F.linear GEMMs through ZLUDA (over the decode) | 1,680 |
+| HF   new ids | `[1986, 374, 264, 32976, 11, 8115, 2168, 23415]` |
+| ZLUDA new ids | `[1986, 374, 264, 32976, 11, 8115, 2168, 23415]` |
+| token-for-token match | **8/8 (identical sequence)** |
+| **VERDICT** | **PASS** |
+
+The full real-image VLM **decode** loop — prefill over image+text, then incremental KV-cached generation —
+produces an identical token stream on gfx1151 through ZLUDA as on the CPU reference.
+
+Repro: `HSA_OVERRIDE_GFX_VERSION=11.5.1 LD_LIBRARY_PATH=<zluda>:<nvrtc>:/opt/rocm/lib python3 zluda_e2e_decode.py`

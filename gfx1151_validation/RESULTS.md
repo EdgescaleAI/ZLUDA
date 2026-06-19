@@ -150,3 +150,30 @@ and the **last-token argmax matches the oracle every seed** (a VLM greedy decode
 The full VLM forward *structure* — both towers plus the fusion seam — composes correctly through ZLUDA.
 
 Repro: `HSA_OVERRIDE_GFX_VERSION=11.5.1 LD_LIBRARY_PATH=<zluda>:<nvrtc>:/opt/rocm/lib python3 zluda_vlm.py [seed]`
+
+## ★★ Rung 7 — REAL Qwen3-VL-2B-Instruct text tower through ZLUDA (literal target arch) — PASS
+All prior model rungs used plain Qwen3 / synthetic harnesses as stand-ins for the gated Cosmos-Reason2.
+`Qwen/Qwen3-VL-2B-Instruct` is **open and ungated** and is the **literal target architecture family**
+(Cosmos-Reason2 = Qwen3-VL), so `zluda_qwenvl.py` runs the **real target-model weights** through ZLUDA.
+Scope: the language (text) tower — a **28-layer Qwen3 decoder** (hidden 2048, 16q/8kv GQA, head_dim 128,
+per-head QK-norm, SwiGLU, tied 151936-vocab), config `mrope_interleaved`, rope_theta 5e6.
+
+Key fact that makes this run on the proven path: Qwen3-VL uses **M-RoPE**, but for **text-only** input all
+three M-RoPE position axes share the same token index, so M-RoPE reduces **exactly** to standard 1D RoPE
+with the model's own `inv_freq` — so the rung-3 `rope_f` kernel (model-supplied inv_freq) applies unchanged.
+The forward runs entirely through ZLUDA primitives (cuBLAS→rocBLAS GEMMs + nvrtc→PTX→ZLUDA kernels for
+RMSNorm / per-head QK-norm / RoPE / causal GQA / SwiGLU); no torch CUDA kernels. Oracle = **HF's own
+torch-CPU fp32 forward of the same model** (which uses HF's correct M-RoPE) on the same input ids.
+
+**4 distinct prompts (lengths 4–8 tokens, incl. code) all PASS**: ZLUDA top-10 next-token ids **exactly
+match** HF in identical order, `top5_match=True`, `top10_setmatch=True`, **`max_logit_diff=0.000`** on every
+prompt. Matching 10 logits to 4 dp across a 152k vocab on a real 28-layer 2B model, on 4 inputs, is
+conclusive — the real Qwen3-VL text tower runs correctly through ZLUDA on gfx1151.
+
+Not yet done (honest top): the real Qwen3-VL **vision** tower end-to-end with real image input requires
+matching HF's exact Qwen3-VL ViT internals (windowed attention, deepstack merger) — deliberately out of
+scope vs the spec-composition harnesses (rung 6.5 proved the vision op set composes; matching HF vision
+internals exactly is a separate reverse-engineering effort). Cosmos-Reason2 *itself* additionally needs the
+gated HF token + an eval oracle.
+
+Repro: `HSA_OVERRIDE_GFX_VERSION=11.5.1 LD_LIBRARY_PATH=<zluda>:<nvrtc>:/opt/rocm/lib python3 zluda_qwenvl.py`

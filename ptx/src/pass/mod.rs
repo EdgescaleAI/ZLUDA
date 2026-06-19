@@ -149,6 +149,11 @@ enum PtxSpecialRegister {
     LanemaskLt,
     LanemaskGe,
     Laneid,
+    // %envreg0..%envreg31: driver environment registers. For a normal kernel
+    // launch they default to 0 (the host driver can set them via the driver
+    // API, which nvcc-built CUDA does not do). Lowered to the constant 0; see
+    // SpecialRegistersMap::new (registers all names) and replace_sreg.
+    Envreg,
 }
 
 impl PtxSpecialRegister {
@@ -163,6 +168,9 @@ impl PtxSpecialRegister {
             Self::LanemaskLt => "%lanemask_lt",
             Self::LanemaskGe => "%lanemask_ge",
             Self::Laneid => "%laneid",
+            // not used to register the name (see SpecialRegistersMap::new),
+            // but as_str must be total
+            Self::Envreg => "%envreg",
         }
     }
 
@@ -187,6 +195,7 @@ impl PtxSpecialRegister {
             PtxSpecialRegister::LanemaskLt => ast::ScalarType::U32,
             PtxSpecialRegister::LanemaskGe => ast::ScalarType::U32,
             PtxSpecialRegister::Laneid => ast::ScalarType::U32,
+            PtxSpecialRegister::Envreg => ast::ScalarType::U32,
         }
     }
 
@@ -200,7 +209,8 @@ impl PtxSpecialRegister {
             | PtxSpecialRegister::LanemaskLe
             | PtxSpecialRegister::LanemaskLt
             | PtxSpecialRegister::LanemaskGe
-            | PtxSpecialRegister::Laneid => None,
+            | PtxSpecialRegister::Laneid
+            | PtxSpecialRegister::Envreg => None,
         }
     }
 
@@ -215,6 +225,8 @@ impl PtxSpecialRegister {
             PtxSpecialRegister::LanemaskLe => "sreg_lanemask_le",
             PtxSpecialRegister::LanemaskGe => "sreg_lanemask_ge",
             PtxSpecialRegister::Laneid => "sreg_laneid",
+            // lowered to a constant, not a function call (replace_sreg)
+            PtxSpecialRegister::Envreg => "sreg_envreg",
         }
     }
 }
@@ -1003,6 +1015,21 @@ impl SpecialRegistersMap {
             id_to_reg: FxHashMap::default(),
         };
         for sreg in PtxSpecialRegister::iter() {
+            if sreg == PtxSpecialRegister::Envreg {
+                // %envreg0..%envreg31 (and the rarely-emitted %envreg32) all map
+                // to the single Envreg variant; register every name so the
+                // identifier resolves, then lower to constant 0 in replace_sreg.
+                for n in 0..=32u32 {
+                    let name = format!("%envreg{}", n);
+                    let id = resolver.add(
+                        Cow::Owned(name),
+                        Some((sreg.get_type(), ast::StateSpace::Reg)),
+                    )?;
+                    result.id_to_reg.insert(id, sreg);
+                    result.reg_to_id.insert(sreg, id);
+                }
+                continue;
+            }
             let text = sreg.as_str();
             let id = resolver.add(
                 Cow::Borrowed(text),
@@ -1034,6 +1061,11 @@ impl SpecialRegistersMap {
         ),
     ) {
         for sreg in PtxSpecialRegister::iter() {
+            // Envreg has no backing builtin; it is lowered to a constant in
+            // replace_sreg, so don't emit an (unresolvable) extern declaration.
+            if sreg == PtxSpecialRegister::Envreg {
+                continue;
+            }
             let external_fn_name = [ZLUDA_PTX_PREFIX, sreg.get_unprefixed_function_name()].concat();
             let name = resolver.register_named(Cow::Owned(external_fn_name), None);
             let return_type = sreg.get_function_return_type();

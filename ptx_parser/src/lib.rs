@@ -157,43 +157,8 @@ fn ident<'a, 'input>(stream: &mut PtxParser<'a, 'input>) -> PResult<&'input str>
         "ident",
         token::any.verify_map(|(t, _)| {
             if let Token::Ident(text) = t {
-                if matches!(
-                    text,
-                    "%envreg1"
-                        | "%envreg2"
-                        | "%envreg3"
-                        | "%envreg4"
-                        | "%envreg5"
-                        | "%envreg6"
-                        | "%envreg7"
-                        | "%envreg8"
-                        | "%envreg9"
-                        | "%envreg10"
-                        | "%envreg11"
-                        | "%envreg12"
-                        | "%envreg13"
-                        | "%envreg14"
-                        | "%envreg15"
-                        | "%envreg16"
-                        | "%envreg17"
-                        | "%envreg18"
-                        | "%envreg19"
-                        | "%envreg20"
-                        | "%envreg21"
-                        | "%envreg22"
-                        | "%envreg23"
-                        | "%envreg24"
-                        | "%envreg25"
-                        | "%envreg26"
-                        | "%envreg27"
-                        | "%envreg28"
-                        | "%envreg29"
-                        | "%envreg30"
-                        | "%envreg31"
-                        | "%envreg32"
-                ) {
-                    stream.state.errors.push(PtxError::UnsupportedSreg(text));
-                }
+                // %envreg* is now supported (lowered to constant 0 in
+                // fix_special_registers); accept it as a normal identifier.
                 Some(text)
             } else if let Some(text) = t.opcode_text() {
                 Some(text)

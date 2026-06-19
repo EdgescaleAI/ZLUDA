@@ -120,6 +120,20 @@ impl<'a, 'b, 'input> SpecialRegisterResolver<'a, 'input> {
             if is_dst {
                 return Err(error_mismatched_type());
             }
+            // %envreg* has no backing builtin; lower a read to the constant 0
+            // (its default value for an ordinary kernel launch).
+            if sreg == PtxSpecialRegister::Envreg {
+                let constant = self.resolver.register_unnamed(Some((
+                    ast::Type::Scalar(ast::ScalarType::U32),
+                    ast::StateSpace::Reg,
+                )));
+                self.result.push(Statement::Constant(ConstantDefinition {
+                    dst: constant,
+                    typ: ast::ScalarType::U32,
+                    value: ast::ImmediateValue::U64(0),
+                }));
+                return Ok(Some(constant));
+            }
             let input_arguments = match (vector_index, sreg.get_function_input_type()) {
                 (Some(idx), Some(inp_type)) => {
                     if inp_type != ast::ScalarType::U8 {

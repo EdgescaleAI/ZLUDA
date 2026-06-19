@@ -630,6 +630,7 @@ impl<'a> MethodEmitContext<'a> {
             ast::Instruction::Rsqrt { data, arguments } => self.emit_rsqrt(data, arguments),
             ast::Instruction::Selp { data, arguments } => self.emit_selp(data, arguments),
             ast::Instruction::Atom { data, arguments } => self.emit_atom(data, arguments),
+            ast::Instruction::Red { data, arguments } => self.emit_red(data, arguments),
             ast::Instruction::AtomCas { data, arguments } => self.emit_atom_cas(data, arguments),
             ast::Instruction::Div { data, arguments } => self.emit_div(data, arguments),
             ast::Instruction::Neg { data, arguments } => self.emit_neg(data, arguments),
@@ -1292,6 +1293,50 @@ impl<'a> MethodEmitContext<'a> {
                 get_ordering(data.semantics),
             )
         });
+        Ok(())
+    }
+
+    // `red` is `atom` with the result discarded: build the same atomic RMW but
+    // do not register a destination value. The atomicrmw is side-effecting, so
+    // LLVM keeps it even though its result is unused.
+    fn emit_red(
+        &mut self,
+        data: ast::AtomDetails,
+        arguments: ast::RedArgs<SpirvWord>,
+    ) -> Result<(), TranslateError> {
+        let builder = self.builder;
+        let src1 = self.resolver.value(arguments.src1)?;
+        let src2 = self.resolver.value(arguments.src2)?;
+        let op = match data.op {
+            ast::AtomicOp::And => LLVMZludaAtomicRMWBinOp::LLVMZludaAtomicRMWBinOpAnd,
+            ast::AtomicOp::Or => LLVMZludaAtomicRMWBinOp::LLVMZludaAtomicRMWBinOpOr,
+            ast::AtomicOp::Xor => LLVMZludaAtomicRMWBinOp::LLVMZludaAtomicRMWBinOpXor,
+            ast::AtomicOp::Exchange => LLVMZludaAtomicRMWBinOp::LLVMZludaAtomicRMWBinOpXchg,
+            ast::AtomicOp::Add => LLVMZludaAtomicRMWBinOp::LLVMZludaAtomicRMWBinOpAdd,
+            ast::AtomicOp::IncrementWrap => {
+                LLVMZludaAtomicRMWBinOp::LLVMZludaAtomicRMWBinOpUIncWrap
+            }
+            ast::AtomicOp::DecrementWrap => {
+                LLVMZludaAtomicRMWBinOp::LLVMZludaAtomicRMWBinOpUDecWrap
+            }
+            ast::AtomicOp::SignedMin => LLVMZludaAtomicRMWBinOp::LLVMZludaAtomicRMWBinOpMin,
+            ast::AtomicOp::UnsignedMin => LLVMZludaAtomicRMWBinOp::LLVMZludaAtomicRMWBinOpUMin,
+            ast::AtomicOp::SignedMax => LLVMZludaAtomicRMWBinOp::LLVMZludaAtomicRMWBinOpMax,
+            ast::AtomicOp::UnsignedMax => LLVMZludaAtomicRMWBinOp::LLVMZludaAtomicRMWBinOpUMax,
+            ast::AtomicOp::FloatAdd => LLVMZludaAtomicRMWBinOp::LLVMZludaAtomicRMWBinOpFAdd,
+            ast::AtomicOp::FloatMin => LLVMZludaAtomicRMWBinOp::LLVMZludaAtomicRMWBinOpFMin,
+            ast::AtomicOp::FloatMax => LLVMZludaAtomicRMWBinOp::LLVMZludaAtomicRMWBinOpFMax,
+        };
+        unsafe {
+            LLVMZludaBuildAtomicRMW(
+                builder,
+                op,
+                src1,
+                src2,
+                get_scope(data.scope)?,
+                get_ordering(data.semantics),
+            )
+        };
         Ok(())
     }
 

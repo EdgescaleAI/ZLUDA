@@ -121,6 +121,21 @@ ptx_parser_macros::generate_instruction_type!(
                 src3: T,
             }
         },
+        // `red` is the result-less reduction form of `atom`: same atomic RMW,
+        // but no destination register (the old value is discarded). nvcc emits
+        // this when an atomic's return value is unused (e.g. ggml count_equal's
+        // `atomicAdd((int*)dst, n)` -> `red.global.add.u32`).
+        Red {
+            type: &data.type_,
+            data: AtomDetails,
+            arguments<T>: {
+                src1: {
+                    repr: T,
+                    space: { data.space },
+                },
+                src2: T,
+            }
+        },
         BarWarp {
             type: Type::Scalar(ScalarType::U32),
             data: (),

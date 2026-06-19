@@ -3628,6 +3628,32 @@ derive_parser!(
     StateSpace =                    { .global };
     RawAtomicOp =                   { .exch };
 
+    // https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#parallel-synchronization-and-communication-instructions-red
+    // `red` == `atom` with the result discarded (no destination operand).
+    red{.sem}{.scope}{.space}.op{.level::cache_hint}.type                                       [a], b{, cache_policy} => {
+        if level_cache_hint || cache_policy.is_some() {
+            state.errors.push(PtxError::Todo("red instruction with cache policy/cache hints".to_string()));
+        }
+        ast::Instruction::Red {
+            data: AtomDetails {
+                semantics: sem.map(Into::into).unwrap_or(AtomSemantics::Relaxed),
+                scope: scope.unwrap_or(MemScope::Gpu),
+                space: space.unwrap_or(StateSpace::Generic),
+                op: ast::AtomicOp::new(op, type_.kind()),
+                type_: type_.into()
+            },
+            arguments: RedArgs { src1: a, src2: b }
+        }
+    }
+    .space: StateSpace =            { .global, .shared{::cta, ::cluster} };
+    .sem: AtomSemantics =           { .relaxed, .acquire, .release, .acq_rel };
+    .scope: MemScope =              { .cta, .cluster, .gpu, .sys };
+    .op: RawAtomicOp =              { .and, .or, .xor,
+                                      .add, .inc, .dec,
+                                      .min, .max };
+    .level::cache_hint =            { .L2::cache_hint };
+    .type: ScalarType =             { .b32, .b64, .u32, .u64, .s32, .s64, .f32, .f64 };
+
     // https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#integer-arithmetic-instructions-div
     // https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#floating-point-instructions-div
     div.type  d, a, b => {

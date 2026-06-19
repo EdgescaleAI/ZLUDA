@@ -300,3 +300,24 @@ The full real-image VLM **decode** loop — prefill over image+text, then increm
 produces an identical token stream on gfx1151 through ZLUDA as on the CPU reference.
 
 Repro: `HSA_OVERRIDE_GFX_VERSION=11.5.1 LD_LIBRARY_PATH=<zluda>:<nvrtc>:/opt/rocm/lib python3 zluda_e2e_decode.py`
+
+## ★★★ Rung 9a — a REAL nvcc-compiled CUDA BINARY through ZLUDA on gfx1151 — PASS
+All prior rungs drove ZLUDA via Python `ctypes`→libcuda + nvrtc PTX strings + a cuBLAS redirect. None ran the
+**canonical ZLUDA path**: a normal nvcc-compiled CUDA ELF (fatbin embedded by `__cudaRegisterFatBinary`,
+`cudaLaunchKernel` via the CUDA runtime `cudart`, `cuModuleLoadData` of nvcc's PTX → ZLUDA PTX→LLVM→gfx1151 JIT).
+Both binaries were compiled **PTX-bearing** (`-gencode arch=compute_70,code=compute_70`) so the fatbin carries
+PTX, which ZLUDA translates (it does **not** translate SASS — the documented wall). Run native with ZLUDA's
+`libnvcuda.so` (→`libcuda.so.1`) + `libcublas.so` ahead on `LD_LIBRARY_PATH`, `HSA_OVERRIDE_GFX_VERSION=11.5.1`.
+
+| binary | path exercised | shape | max_abs vs host ref | n_bad | verdict |
+|---|---|---|---|---|---|
+| `vecadd`  | custom `__global__` kernel → nvcc PTX → ZLUDA PTX-frontend → gfx1151 JIT/launch | n=65536 | **0.000e+00** | 0 | **PASS** |
+| `gemm_rt` | cudart → cuBLAS → ZLUDA → rocBLAS, as a compiled binary | M=64 K=48 N=32 | **6.723e-07** | 0 | **PASS** |
+
+`vecadd` proves ZLUDA's PTX frontend on **real nvcc compiler output** (not hand-fed nvrtc strings) and the
+cudart fatbin-register/launch path end-to-end. `gemm_rt` proves the cuBLAS→rocBLAS redirect from a compiled
+binary. (A benign `libcublas.so.12: no version information available` linker note appears — ZLUDA's shim has no
+symbol-version map; output is bit-correct regardless.) This is the actual treadmill the project exists to walk.
+
+Repro (in pod, after ZLUDA built + CUDA 12.4 toolkit installed): `bash /root/run_rung9.sh` (compiles + runs
+`gfx1151_validation/rung9/{vecadd.cu,gemm_rt.cu}`).

@@ -1,0 +1,61 @@
+++ date -u
++ echo 'RUNG9_START Fri Jun 19 06:16:03 UTC 2026'
+RUNG9_START Fri Jun 19 06:16:03 UTC 2026
++ ZL=/root/ZLUDA/target/release
+++ command -v nvcc
+++ echo /usr/local/cuda/bin/nvcc
++ NVCC=/usr/local/cuda/bin/nvcc
++ echo 'nvcc = /usr/local/cuda/bin/nvcc'
+nvcc = /usr/local/cuda/bin/nvcc
++ /usr/local/cuda/bin/nvcc --version
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2024 NVIDIA Corporation
+Built on Thu_Mar_28_02:18:24_PDT_2024
+Cuda compilation tools, release 12.4, V12.4.131
+Build cuda_12.4.r12.4/compiler.34097967_0
++ ln -sf /root/ZLUDA/target/release/libnvcuda.so /root/ZLUDA/target/release/libcuda.so.1
++ ln -sf /root/ZLUDA/target/release/libnvcuda.so /root/ZLUDA/target/release/libcuda.so
++ ls -la /root/ZLUDA/target/release/libcuda.so /root/ZLUDA/target/release/libcuda.so.1 /root/ZLUDA/target/release/libcublas.d /root/ZLUDA/target/release/libcublas.so /root/ZLUDA/target/release/libcublas.so.11 /root/ZLUDA/target/release/libcublas.so.12 /root/ZLUDA/target/release/libcublas.so.13 /root/ZLUDA/target/release/libcublasLt.so /root/ZLUDA/target/release/libcublasLt.so.11 /root/ZLUDA/target/release/libcublasLt.so.12 /root/ZLUDA/target/release/libcublasLt.so.13 /root/ZLUDA/target/release/libcublaslt.d /root/ZLUDA/target/release/libcublaslt.so
+-rw-r--r--. 1 root root   2512 Jun 19 06:15 /root/ZLUDA/target/release/libcublas.d
+-rwxr-xr-x. 2 root root 477536 Jun 19 06:00 /root/ZLUDA/target/release/libcublas.so
+lrwxrwxrwx. 1 root root     12 Jun 19 06:15 /root/ZLUDA/target/release/libcublas.so.11 -> libcublas.so
+lrwxrwxrwx. 1 root root     12 Jun 19 06:15 /root/ZLUDA/target/release/libcublas.so.12 -> libcublas.so
+lrwxrwxrwx. 1 root root     12 Jun 19 06:15 /root/ZLUDA/target/release/libcublas.so.13 -> libcublas.so
+lrwxrwxrwx. 1 root root     14 Jun 19 06:15 /root/ZLUDA/target/release/libcublasLt.so -> libcublaslt.so
+lrwxrwxrwx. 1 root root     14 Jun 19 06:15 /root/ZLUDA/target/release/libcublasLt.so.11 -> libcublaslt.so
+lrwxrwxrwx. 1 root root     14 Jun 19 06:15 /root/ZLUDA/target/release/libcublasLt.so.12 -> libcublaslt.so
+lrwxrwxrwx. 1 root root     14 Jun 19 06:15 /root/ZLUDA/target/release/libcublasLt.so.13 -> libcublaslt.so
+-rw-r--r--. 1 root root   2413 Jun 19 06:15 /root/ZLUDA/target/release/libcublaslt.d
+-rwxr-xr-x. 2 root root 423200 Jun 19 06:00 /root/ZLUDA/target/release/libcublaslt.so
+lrwxrwxrwx. 1 root root     39 Jun 19 06:16 /root/ZLUDA/target/release/libcuda.so -> /root/ZLUDA/target/release/libnvcuda.so
+lrwxrwxrwx. 1 root root     39 Jun 19 06:16 /root/ZLUDA/target/release/libcuda.so.1 -> /root/ZLUDA/target/release/libnvcuda.so
++ cd /root/r9
++ GENCODE='-gencode arch=compute_70,code=compute_70'
++ echo '=== compile vecadd ==='
+=== compile vecadd ===
++ /usr/local/cuda/bin/nvcc -gencode arch=compute_70,code=compute_70 vecadd.cu -o vecadd
++ echo '=== compile gemm_rt ==='
+=== compile gemm_rt ===
++ /usr/local/cuda/bin/nvcc -gencode arch=compute_70,code=compute_70 gemm_rt.cu -lcublas -o gemm_rt
++ export LD_LIBRARY_PATH=/root/ZLUDA/target/release:/opt/rocm/lib:/usr/local/cuda/lib64:
++ LD_LIBRARY_PATH=/root/ZLUDA/target/release:/opt/rocm/lib:/usr/local/cuda/lib64:
++ export HSA_OVERRIDE_GFX_VERSION=11.5.1
++ HSA_OVERRIDE_GFX_VERSION=11.5.1
++ echo '=== RUN vecadd (custom kernel via PTX frontend) ==='
+=== RUN vecadd (custom kernel via PTX frontend) ===
++ ./vecadd
+VECADD n=65536 max_abs=0.000e+00 n_bad=0 sample c[7]=14.5000 (ref 14.5000)
+RUNG9A_VERDICT PASS
++ echo VECADD_RC=0
+VECADD_RC=0
++ echo '=== RUN gemm_rt (cudart -> cublas -> ZLUDA -> rocBLAS) ==='
+=== RUN gemm_rt (cudart -> cublas -> ZLUDA -> rocBLAS) ===
++ ./gemm_rt
+./gemm_rt: /root/ZLUDA/target/release/libcublas.so.12: no version information available (required by ./gemm_rt)
+GEMM_RT M=64 K=48 N=32 max_abs=6.723e-07 n_bad=0
+RUNG9A_GEMM_VERDICT PASS
++ echo GEMM_RC=0
+GEMM_RC=0
+++ date -u
++ echo 'RUNG9_DONE Fri Jun 19 06:16:05 UTC 2026'
+RUNG9_DONE Fri Jun 19 06:16:05 UTC 2026

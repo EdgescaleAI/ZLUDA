@@ -28,10 +28,18 @@ extern "C" __global__ void rope_f(const float* x,const float* invf,float* o,int 
 
 CUDA.cuMemFree_v2.argtypes=[C.c_ulonglong]          # 64-bit device ptr — required or frees silently no-op
 CUDA.cuMemAlloc_v2.argtypes=[C.POINTER(C.c_ulonglong),C.c_size_t]
+# sizes must be c_size_t (64-bit) — else >2GB transfers truncate to 32-bit -> INVALID_VALUE
+CUDA.cuMemcpyHtoD_v2.argtypes=[C.c_ulonglong,C.c_void_p,C.c_size_t]
+CUDA.cuMemcpyDtoH_v2.argtypes=[C.c_void_p,C.c_ulonglong,C.c_size_t]
+_CHUNK=1<<30   # 1 GiB — a single HtoD/DtoH >2GB fails (32-bit size path); chunk large transfers
 def dev_np(a):
     a=np.ascontiguousarray(a,dtype=np.float32)
     d=C.c_ulonglong(); _ck(CUDA.cuMemAlloc_v2(C.byref(d),a.nbytes),"alloc")
-    _ck(CUDA.cuMemcpyHtoD_v2(d,a.ctypes.data_as(C.c_void_p),a.nbytes),"h2d")
+    base=a.ctypes.data_as(C.c_void_p).value; off=0; n=a.nbytes
+    while off<n:
+        c=min(_CHUNK,n-off)
+        _ck(CUDA.cuMemcpyHtoD_v2(C.c_ulonglong(d.value+off),C.c_void_p(base+off),c),"h2d")
+        off+=c
     return d
 def alloc(n):
     d=C.c_ulonglong(); _ck(CUDA.cuMemAlloc_v2(C.byref(d),n*4),"alloc"); return d
@@ -73,6 +81,7 @@ def load_weights():
     L=cfg.num_hidden_layers
     W={"embed":npv(sd["model.embed_tokens.weight"]),  # [V,H]
        "final_norm":npv(sd["model.norm.weight"]), "layers":[]}
+    if "lm_head.weight" in sd: W["lm_head"]=npv(sd["lm_head.weight"])   # untied LM head
     for i in range(L):
         p=f"model.layers.{i}."
         W["layers"].append(dict(
@@ -120,7 +129,7 @@ def forward(q, W, cfg, ids):
     dxf=alloc(S*H); q.k("rmsnorm",(S,1,1),(1,1,1),[P(dx),P(dev_np(W["final_norm"])),P(dxf),C.c_int(S),C.c_int(H),C.c_float(eps)])
     # last-token logits only: (1,H) @ embed^T (H,V)
     last=get_np(dxf,S*H).reshape(S,H)[-1:].copy()   # (1,H)
-    dlast=dev_np(last); dWlm=dev_np(W["embed"].T)    # [H,V]
+    dlast=dev_np(last); dWlm=dev_np(W.get("lm_head", W["embed"]).T)    # [H,V]; untied models have separate lm_head
     dlog=q.gemm(dlast,dWlm,1,H,V)
     return get_np(dlog,V)
 

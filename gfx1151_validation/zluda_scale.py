@@ -33,6 +33,7 @@ def main():
         if getattr(m,"inv_freq",None) is not None: inv=m.inv_freq.detach().numpy().astype(np.float32).copy(); break
     L=cfg.num_hidden_layers
     W={"embed":npv(sd["model.embed_tokens.weight"]),"final_norm":npv(sd["model.norm.weight"]),"inv_freq":inv,"layers":[]}
+    if "lm_head.weight" in sd: W["lm_head"]=npv(sd["lm_head.weight"])   # untied LM head (e.g. Qwen3-8B)
     for i in range(L):
         p=f"model.layers.{i}."
         W["layers"].append(dict(Wq=npT(sd[p+"self_attn.q_proj.weight"]),Wk=npT(sd[p+"self_attn.k_proj.weight"]),

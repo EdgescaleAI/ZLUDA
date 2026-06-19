@@ -1,0 +1,90 @@
+{
+  "manifest": {
+    "tier": "T3",
+    "kind": "tiny-model-mps-smoke",
+    "model": "Qwen/Qwen3-0.6B",
+    "framework": "transformers/torch 2.8.0",
+    "prompt": "The capital of France is",
+    "n_new": 8,
+    "decode": "greedy/do_sample=False",
+    "ref_backend": "torch:cpu:fp32",
+    "cand_backend": "torch:mps:fp16",
+    "device": "Apple MPS",
+    "captured_at": 1781809776.466791
+  },
+  "input_ids": [
+    785,
+    6722,
+    315,
+    9625,
+    374
+  ],
+  "cpu_fp32_top": {
+    "ids": [
+      12095,
+      7407,
+      279,
+      1112,
+      30743,
+      220,
+      32671,
+      304,
+      264,
+      24209
+    ],
+    "logits": [
+      17.4989,
+      14.3372,
+      14.1693,
+      13.766,
+      13.6347,
+      13.5924,
+      13.5594,
+      13.4218,
+      13.1717,
+      13.1551
+    ]
+  },
+  "mps_fp16_top": {
+    "ids": [
+      12095,
+      7407,
+      279,
+      1112,
+      30743,
+      220,
+      32671,
+      304,
+      264,
+      24209
+    ],
+    "logits": [
+      17.5,
+      14.3281,
+      14.1719,
+      13.7656,
+      13.6406,
+      13.5859,
+      13.5625,
+      13.4062,
+      13.1719,
+      13.1484
+    ]
+  },
+  "logit_diff": {
+    "last_pos_max_abs": 0.03642988204956055,
+    "topk_index_matches": "10/10",
+    "argmax_agrees": true
+  },
+  "mps_greedy_continuation_text": " Paris. The capital of Italy is Rome",
+  "mps_greedy_continuation_ids": [
+    12095,
+    13,
+    576,
+    6722,
+    315,
+    15344,
+    374,
+    21718
+  ]
+}

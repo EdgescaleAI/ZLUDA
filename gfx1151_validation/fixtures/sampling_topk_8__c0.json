@@ -1,0 +1,1 @@
+{"manifest": {"op": "sampling_topk_8", "case": "c0", "family": "sampling-topk-topp", "seed": 1234, "ref_backend": "purepy:fp32", "ref_precision": "fp32", "ref_dtype": "fp32", "captured_at": 1781831927.618361}, "output": [[0.20580650866031647, 0.016893627122044563, 0.058964554220438004, 0.0, 0.0, 0.0, 0.7183353304862976, 0.0]]}

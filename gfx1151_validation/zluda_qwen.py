@@ -26,6 +26,8 @@ extern "C" __global__ void rope_f(const float* x,const float* invf,float* o,int 
     float x1=x[r*width+b+i],x2=x[r*width+b+half+i]; o[r*width+b+i]=x1*c-x2*s; o[r*width+b+half+i]=x1*s+x2*c; } } }
 '''
 
+CUDA.cuMemFree_v2.argtypes=[C.c_ulonglong]          # 64-bit device ptr — required or frees silently no-op
+CUDA.cuMemAlloc_v2.argtypes=[C.POINTER(C.c_ulonglong),C.c_size_t]
 def dev_np(a):
     a=np.ascontiguousarray(a,dtype=np.float32)
     d=C.c_ulonglong(); _ck(CUDA.cuMemAlloc_v2(C.byref(d),a.nbytes),"alloc")
@@ -33,6 +35,10 @@ def dev_np(a):
     return d
 def alloc(n):
     d=C.c_ulonglong(); _ck(CUDA.cuMemAlloc_v2(C.byref(d),n*4),"alloc"); return d
+def free(*ds):
+    for d in ds:
+        try: CUDA.cuMemFree_v2(d)
+        except Exception: pass
 def get_np(d,n):
     a=np.empty(n,dtype=np.float32); _ck(CUDA.cuMemcpyDtoH_v2(a.ctypes.data_as(C.c_void_p),d,n*4),"d2h"); return a
 P=lambda d:C.c_void_p(d.value)
@@ -107,7 +113,10 @@ def forward(q, W, cfg, ids):
         dg=q.gemm(dxn2,dWg,S,H,I); du=q.gemm(dxn2,dWu,S,H,I)
         dsw=alloc(S*I); q.k("swiglu",((S*I+63)//64,1,1),(64,1,1),[P(dg),P(du),P(dsw),C.c_int(S*I)])
         dd=q.gemm(dsw,dWd,S,I,H)
-        dx=alloc(S*H); q.k("addk",((S*H+63)//64,1,1),(64,1,1),[P(dx1),P(dd),P(dx),C.c_int(S*H)])
+        dxnew=alloc(S*H); q.k("addk",((S*H+63)//64,1,1),(64,1,1),[P(dx1),P(dd),P(dxnew),C.c_int(S*H)])
+        # free this layer's device weights + intermediates (bounds memory for large models)
+        free(dx,dWq,dWk,dWv,dWo,dWg,dWu,dWd,dgN1,dgN2,dgQ,dgK,dxn,dQ,dK,dV,dQn,dKn,dQr,dKr,dao,do,dx1,dxn2,dg,du,dsw,dd)
+        dx=dxnew
     dxf=alloc(S*H); q.k("rmsnorm",(S,1,1),(1,1,1),[P(dx),P(dev_np(W["final_norm"])),P(dxf),C.c_int(S),C.c_int(H),C.c_float(eps)])
     # last-token logits only: (1,H) @ embed^T (H,V)
     last=get_np(dxf,S*H).reshape(S,H)[-1:].copy()   # (1,H)

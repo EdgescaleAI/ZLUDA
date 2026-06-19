@@ -177,3 +177,23 @@ internals exactly is a separate reverse-engineering effort). Cosmos-Reason2 *its
 gated HF token + an eval oracle.
 
 Repro: `HSA_OVERRIDE_GFX_VERSION=11.5.1 LD_LIBRARY_PATH=<zluda>:<nvrtc>:/opt/rocm/lib python3 zluda_qwenvl.py`
+
+## ★★ Rung 7.5 — REAL Qwen3-VL-2B VISION block through ZLUDA (real trained weights) — PASS
+Closes the vision side with REAL weights (rung 6.5 proved the vision op set composes on a synthetic spec;
+this runs the ACTUAL `Qwen3VLVisionBlock`). `zluda_vit_real.py` pulls a real vision block's trained tensors
+(fused `qkv` Linear+bias, `proj`+bias, two `LayerNorm`s, MLP `linear_fc1`→`gelu_pytorch_tanh`→`linear_fc2`
++biases) and runs the block — `h += attn(LayerNorm(h)); h += mlp(LayerNorm(h))`, with rotate_half 2D-rope and
+FULL non-causal MHA — through ZLUDA primitives (cuBLAS→rocBLAS GEMMs + nvrtc→PTX→ZLUDA kernels: layernorm,
+bias_add, rope_apply, mha, gelu-tanh, addk). Graded vs **HF's own forward of that exact block** on identical
+hidden_states + rotary cos/sin (isolating ZLUDA's execution of the real block math from HF grid logic).
+
+**9 real-weight configurations all PASS, `n_fail=0/16384` each**: block 0 across 5 seeds (max_abs 2.3e-5–3.8e-5)
+and 4 distinct deeper blocks (6/12/18/23; max_abs 3.7e-6–1.2e-3) at rtol/atol 2e-3. The real vision block
+computes correctly through ZLUDA on gfx1151. Combined with rung 7, **both towers of the literal target
+architecture (Qwen3-VL) now run on real weights through ZLUDA.**
+
+Remaining for a full real end-to-end VLM: chain all 24 vision blocks + the real patch-merger with HF's real
+grid-derived 2D-rope and a real preprocessed image, then fuse into the text tower — the repeating unit (block)
+and the fusion seam (6.75) are both proven; what's left is real grid-rope construction + image preprocessing.
+
+Repro: `HSA_OVERRIDE_GFX_VERSION=11.5.1 LD_LIBRARY_PATH=<zluda>:<nvrtc>:/opt/rocm/lib python3 zluda_vit_real.py [seed] [block_idx]`

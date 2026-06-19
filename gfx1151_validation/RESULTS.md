@@ -65,3 +65,14 @@ LM-head GEMM → logits. 6/12/**28** layers (28 = Qwen3-0.6B depth) all PASS: n_
 max_abs ~7e-7 (stable across depth), and the **last-token argmax matches the fp64 oracle at every
 depth** — a greedy decode would emit the same token. The whole-transformer forward *structure*
 composes correctly through ZLUDA; real-weight Qwen3-0.6B grading is the remaining rung-3 step.
+
+## ★ Rung 3 — real Qwen3-0.6B forward through ZLUDA — PASS
+`zluda_qwen.py`: transformers loads Qwen3-0.6B weights on CPU (no GPU kernels); the forward runs
+**entirely through ZLUDA primitives** (cuBLAS→rocBLAS GEMMs + nvrtc→PTX→ZLUDA kernels for
+RMSNorm / per-head QK-norm / RoPE / causal GQA attention / SwiGLU). No torch CUDA kernels (the wheel
+is SASS-only). Graded vs the torch-cpu-fp32 fixture:
+- top-10 next-token ids **exactly match**; top-10 logits match to 4 decimals (max diff 0.000)
+- 8-token greedy continuation **identical**: " Paris. The capital of Italy is Rome"
+
+A whole 28-layer transformer (GQA 16q/8kv, head_dim 128, tied 151936-vocab) runs correctly through
+ZLUDA on gfx1151. Matching 10 logits + 8 consecutive argmaxes is conclusive.

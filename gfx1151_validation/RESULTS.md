@@ -377,3 +377,43 @@ fragment shapes — a multi-day project whose payoff is a perf path this hardwar
 The non-MMA attention (`-fa off`) is therefore the *right* path here and it PASSES. Classification:
 **deep PTX-frontend extension (needs mbarrier + tensor-core→WMMA lowering); out of tonight's scope; not a
 correctness gap for tensor-core-less gfx1151.** No green faked; no tolerance loosened.
+
+## Rung 10 — llama.cpp `test-backend-ops` CUDA op-conformance through ZLUDA on gfx1151 (2026-06-19)
+Ran the **entire CUDA-backend op-conformance suite** of stock llama.cpp (`test-backend-ops`, commit on
+ggml-org/llama.cpp default branch) through ZLUDA on gfx1151. Built `GGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=
+70-virtual` (PTX-only fatbins — ZLUDA translates PTX, not SASS); device enumerated as `[ZLUDA]`, 126976 MiB.
+This exercises a far broader and more diverse PTX-frontend + library surface than rung 9b's single
+`llama-cli` generation path (124 distinct GGML ops; thousands of shape/dtype test cases).
+
+**Headline: 4125 op-correctness cases PASS, 0 numeric FAIL** in the first (alphabetical) `test` pass before a
+hard CUDA error aborted the suite. A per-op runner (`rung10/perop.sh` — each op separately so one abort can't
+mask the rest) then produced the full 124-op verdict table (`rung10/perop_run1.log`).
+
+### Gap found + FIXED: PTX `red` instruction (commit 92a626e6)
+`COUNT_EQUAL` aborted the suite with `CUDA error: named symbol not found` at `ggml_cuda_compute_forward`.
+Localized: its kernel emits **`red.global.add.u32`** — the *result-less* atomic-reduction form of `atom`
+(nvcc lowers an `atomicAdd` whose return value is unused to `red`). ZLUDA's PTX grammar had `atom` and
+`bar.red` but **not** the standalone `red` instruction, so the kernel module failed to parse, was dropped,
+and the symbol was absent at launch. Fix (userspace Rust, ZLUDA fork): `Red` AST variant (mirrors `Atom`'s
+memory-operand annotation, no `dst`), `red{.sem}{.scope}{.space}.op.type [a], b` grammar rule, `emit_red`
+(same `LLVMZludaBuildAtomicRMW` as `emit_atom` but the result is discarded — atomicrmw is side-effecting so
+LLVM keeps it), and passthrough arms in `insert_post_saturation` + `instruction_mode_to_global_mode`.
+**Verified after incremental rebuild:** `COUNT_EQUAL` 2/2 OK (cudaerr 2→0) and `ARGSORT` 38/38 OK
+(cudaerr 2→0) — both now PASS through ZLUDA. One frontend fix cleared two ops.
+
+### Remaining non-PASS, classified honestly (not faked, not bailed)
+- **Other `named symbol not found` (different frontend gap, NOT `red`):** `CROSS_ENTROPY_LOSS`(+`_BACK`),
+  `MUL_MAT_ID` (89 cases pass, one variant fails), `SOFT_MAX` (205 pass, only the huge sink variant
+  ne=[200001,…],sinks=1,m_prec=f16 fails). Their PTX shows no `red`; pinning the exact construct needs the
+  ZLUDA module-load-error instrumentation noted in §Rung 9b (next step).
+- **`FLASH_ATTN_EXT` (iq4_nl K/V variant):** the known tensor-core MMA path — 222 FA cases pass; the MMA
+  kernel fails for the documented reason (no `mbarrier`, and gfx1151 has no NVIDIA tensor cores). Same
+  classification as §Rung 9b addendum. Non-MMA attention is the correct path on this silicon.
+- **Numeric FAIL (real compute, not frontend):** `SSM_CONV` ERR 0.090 (genuine divergence to localize);
+  `MUL_MAT` q5_1 single case ERR 5.8e-4 vs 5e-4 tol (borderline quantized GEMM — MEDIUM).
+- **Library gaps (rocBLAS/hipBLASLt, not ZLUDA PTX):** `SOLVE_TRI` (`CUBLAS_STATUS_NOT_SUPPORTED`),
+  `TOP_K` (operation not supported).
+- **ggml's OWN backend NOTSUP (not a ZLUDA gap):** `CONV_3D`, `POOL_1D` — ggml-cuda doesn't implement them.
+
+Repro: `gfx1151_validation/rung10/{zbuild.sh, tbo_build.sh, tbo_run.sh, perop.sh}` + `perop_run1.log`.
+Build/link recipe identical to rung 9b (driver-stub `libcuda.so.1` for link, ZLUDA wins at runtime).

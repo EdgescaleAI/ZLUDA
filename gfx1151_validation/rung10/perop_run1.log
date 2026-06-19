@@ -1,0 +1,126 @@
+PEROP_START Fri Jun 19 07:21:04 UTC 2026
+PEROP ABS ok=4 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP ACC ok=4 notsup=2 fail=0 cudaerr=0 -> PASS 
+PEROP ADD ok=99 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP ADD1 ok=0 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP ADD_ID ok=36 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP ADD_REL_POS ok=0 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP ARANGE ok=2 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP ARGMAX ok=7 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP ARGSORT ok=11 notsup=0 fail=0 cudaerr=2 -> CUDA_ERROR(rc=0)   ARGSORT(type=f32,ne=[4096,1,1,1],order=0): CUDA error: named symbol not found
+PEROP CEIL ok=10 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP CLAMP ok=6 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP COL2IM_1D ok=31 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP CONCAT ok=106 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP CONT ok=32 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP CONV_2D ok=1566 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP CONV_2D_DW ok=4 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP CONV_3D ok=0 notsup=258 fail=0 cudaerr=0 -> NOTSUP_GGML 
+PEROP CONV_TRANSPOSE_1D ok=116 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP CONV_TRANSPOSE_2D ok=4 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP COS ok=6 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP COUNT_EQUAL ok=0 notsup=0 fail=0 cudaerr=2 -> CUDA_ERROR(rc=0) CUDA error: named symbol not found
+PEROP CPY ok=209 notsup=307 fail=0 cudaerr=0 -> PASS 
+PEROP CROSS_ENTROPY_LOSS ok=0 notsup=0 fail=0 cudaerr=2 -> CUDA_ERROR(rc=0)   CROSS_ENTROPY_LOSS(type=f32,ne=[10,5,4,3]): CUDA error: named symbol not found
+PEROP CROSS_ENTROPY_LOSS_BACK ok=0 notsup=0 fail=0 cudaerr=2 -> CUDA_ERROR(rc=0)   CROSS_ENTROPY_LOSS_BACK(type=f32,ne=[10,5,4,3]): CUDA error: named symbol not found
+PEROP CUMSUM ok=15 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP CUSTOM ok=0 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP DIAG ok=3 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP DIAG_MASK_INF ok=3 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP DIAG_MASK_ZERO ok=0 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP DIV ok=91 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP DUP ok=3 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP ELU ok=4 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP EXP ok=4 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP EXPM1 ok=4 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP FILL ok=4 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP FLASH_ATTN_BACK ok=0 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP FLASH_ATTN_EXT ok=226 notsup=8 fail=0 cudaerr=2 -> CUDA_ERROR(rc=0)   FLASH_ATTN_EXT(hsk=64,hsv=64,nh=4,nr23=[1,1],kv=113,nb=3,mask=1,sinks=1,max_bias=0.000000,logit_softcap=0.000000,prec=f32,type_K=iq4_nl,type_V=iq4_nl,permute=[0,1,2,3]): CUDA error: named symbol not found
+PEROP FLOOR ok=10 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP GATED_DELTA_NET ok=34 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP GATED_LINEAR_ATTN ok=4 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP GEGLU ok=22 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP GEGLU_ERF ok=22 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP GEGLU_QUICK ok=22 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP GELU ok=4 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP GELU_ERF ok=4 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP GELU_QUICK ok=3 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP GET_REL_POS ok=0 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP GET_ROWS ok=45 notsup=64 fail=0 cudaerr=0 -> PASS 
+PEROP GET_ROWS_BACK ok=3 notsup=50 fail=0 cudaerr=0 -> PASS 
+PEROP GLU ok=0 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP GROUP_NORM ok=2 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP HARDSIGMOID ok=4 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP HARDSWISH ok=4 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP IM2COL ok=91 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP IM2COL_3D ok=1615 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP IM2COL_BACK ok=0 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP L2_NORM ok=20 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP LEAKY_RELU ok=7 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP LOG ok=6 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP MAP_CUSTOM1 ok=0 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP MAP_CUSTOM2 ok=0 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP MAP_CUSTOM3 ok=0 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP MEAN ok=7 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP MUL ok=91 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP MUL_MAT ok=534 notsup=306 fail=1 cudaerr=2 -> CUDA_ERROR(rc=0) [MUL_MAT] ERR = 0.000584445 > 0.000500000   MUL_MAT(type_a=q5_1,type_b=f32,m=16,n=1,k=32,bs=[1,1],nr=[1,1],per=[0,1,2,3],k_v=0,o=1): FAIL
+PEROP MUL_MAT_ID ok=81 notsup=0 fail=0 cudaerr=2 -> CUDA_ERROR(rc=0) CUDA error: named symbol not found
+PEROP NEG ok=4 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP NORM ok=20 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP OPT_STEP_ADAMW ok=1 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP OPT_STEP_SGD ok=1 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP OUT_PROD ok=59 notsup=1216 fail=0 cudaerr=0 -> PASS 
+PEROP PAD ok=28 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP PAD_REFLECT_1D ok=2 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP PERMUTE ok=0 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP POOL_1D ok=0 notsup=48 fail=0 cudaerr=0 -> NOTSUP_GGML 
+PEROP POOL_2D ok=128 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP POOL_2D_BACK ok=0 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP REGLU ok=22 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP RELU ok=4 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP REPEAT ok=10 notsup=6 fail=0 cudaerr=0 -> PASS 
+PEROP REPEAT_BACK ok=10 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP RESHAPE ok=0 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP RMS_NORM ok=21 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP RMS_NORM_BACK ok=10 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP ROLL ok=1 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP ROPE ok=422 notsup=20 fail=0 cudaerr=0 -> PASS 
+PEROP ROPE_BACK ok=369 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP ROUND ok=10 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP RWKV_WKV6 ok=4 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP RWKV_WKV7 ok=4 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP SCALE ok=4 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP SET ok=11 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP SET_ROWS ok=135 notsup=192 fail=0 cudaerr=0 -> PASS 
+PEROP SGN ok=4 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP SIGMOID ok=4 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP SILU ok=4 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP SILU_BACK ok=1 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP SIN ok=6 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP SOFTPLUS ok=4 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP SOFT_MAX ok=204 notsup=0 fail=0 cudaerr=2 -> CUDA_ERROR(rc=0)   SOFT_MAX(type=f32,ne=[200001,2,3,1],mask=1,sinks=1,m_prec=f16,nr23=[1,1],scale=0.100000,max_bias=8.000000,inplace=0): CUDA error: named symbol not found
+PEROP SOFT_MAX_BACK ok=24 notsup=24 fail=0 cudaerr=0 -> PASS 
+PEROP SOLVE_TRI ok=5 notsup=0 fail=0 cudaerr=2 -> CUDA_ERROR(rc=0) CUDA error: CUBLAS_STATUS_NOT_SUPPORTED
+PEROP SQR ok=6 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP SQRT ok=6 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP SSM_CONV ok=40 notsup=0 fail=3 cudaerr=0 -> FAIL [SSM_CONV] ERR = 0.089794570 > 0.000000100   SSM_CONV(type=f32,ne_a=[6,1024,1,1],ne_b=[3,1024,1,1]): FAIL
+PEROP SSM_SCAN ok=4 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP STEP ok=4 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP SUB ok=91 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP SUM ok=7 notsup=1 fail=0 cudaerr=0 -> PASS 
+PEROP SUM_ROWS ok=4 notsup=6 fail=0 cudaerr=0 -> PASS 
+PEROP SWIGLU ok=22 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP SWIGLU_OAI ok=8 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP TANH ok=4 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP TIMESTEP_EMBEDDING ok=1 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP TOP_K ok=0 notsup=0 fail=0 cudaerr=2 -> CUDA_ERROR(rc=0) CUDA error: operation not supported
+PEROP TRANSPOSE ok=0 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP TRI ok=4 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP TRUNC ok=10 notsup=4 fail=0 cudaerr=0 -> PASS 
+PEROP UNARY ok=0 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP UPSCALE ok=21 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP VIEW ok=0 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP WIN_PART ok=0 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP WIN_UNPART ok=0 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP XIELU ok=4 notsup=0 fail=0 cudaerr=0 -> PASS 
+PEROP_DONE Fri Jun 19 07:26:12 UTC 2026

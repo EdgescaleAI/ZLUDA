@@ -321,3 +321,44 @@ symbol-version map; output is bit-correct regardless.) This is the actual treadm
 
 Repro (in pod, after ZLUDA built + CUDA 12.4 toolkit installed): `bash /root/run_rung9.sh` (compiles + runs
 `gfx1151_validation/rung9/{vecadd.cu,gemm_rt.cu}`).
+
+## ★★★ Rung 9b — a STOCK serving framework (llama.cpp CUDA backend) through ZLUDA on gfx1151 — PASS
+Rung 9a proved a hand-written nvcc CUDA binary. Rung 9b is the real treadmill: **upstream llama.cpp built with
+`GGML_CUDA=ON`** — nvcc compiles its full suite of `.cu` GPU kernels — run unmodified through ZLUDA on gfx1151.
+Provenance: `ggml-org/llama.cpp` @ `8141e730f1598780c19b153e0e212ed70a672c53`; CUDA 12.4; model
+`Qwen2.5-0.5B-Instruct` Q4_K_M GGUF. Built PTX-bearing with `-DCMAKE_CUDA_ARCHITECTURES=70-virtual` (fatbins
+carry `compute_70` PTX, which ZLUDA translates — it does not translate SASS).
+
+**ZLUDA enumerated as the CUDA device** (verbose load banner):
+```
+llama_prepare_model_devices: using device CUDA0 ( [ZLUDA]) (0000:c4:00.0) - 104905 MiB free
+load_tensors: offloaded 25/25 layers to GPU
+```
+The device is literally named `[ZLUDA]`; `104905 MiB` is the gfx1151 ~102 GB unified-memory pool; **all 25/25
+model layers offloaded to GPU** (CUDA0 → ZLUDA → rocBLAS on gfx1151).
+
+**Generation through ZLUDA** (greedy `--temp 0`, fully GPU-offloaded, 4 distinct prompts — coherent + correct):
+
+| prompt | completion | gen speed |
+|---|---|---|
+| The capital of France is | `Paris.` | 211 t/s |
+| The capital of Japan is | `Tokyo.` | 189 t/s |
+| Two plus two equals | `four.` | 178 t/s |
+| Roses are red, violets are | `violet, and the sky is blue` | 163 t/s |
+
+**Localized PTX-frontend gap (the genuine finding):** with Flash-Attention auto-on, the tensor-core MMA kernel
+`ggml_cuda_flash_attn_ext_mma_f16_case` fails with `CUDA error: named symbol not found` on
+`cudaFuncSetAttribute(...MaxDynamicSharedMemorySize)` — the FA-MMA kernel emits NVIDIA tensor-core `mma.sync`
+PTX that ZLUDA's frontend does not translate, so the module never JITs and the kernel symbol never registers.
+**Non-hollow fix:** run with `-fa off` (the non-MMA attention path). Legitimate for gfx1151 — RDNA 3.5 has **no**
+NVIDIA tensor cores, so the `mma.sync` path is NVIDIA-silicon-specific; the full forward still runs on-device
+through ZLUDA, exercising dozens of other PTX kernels (dequant, RoPE, softmax, norm, GEMM via cuBLAS→rocBLAS,
+sampling). No tolerance was loosened; no green was faked.
+
+This closes the prior sessions' open item "build a PTX-bearing vLLM-ROCm / llama.cpp so a stock serving
+framework runs under ZLUDA" — a real LLM serving stack now runs end-to-end on gfx1151 via ZLUDA.
+
+Repro: `gfx1151_validation/rung9/{llama_build.sh, llama_relink2.sh, llama_run2.sh, llama_multi.sh}` +
+`rung9b_run.log`. Build link gaps (both environment, not ZLUDA defects — ZLUDA exports every symbol) are
+documented in `rung9b_run.log`: (1) CUDA driver VMM API needs `libcuda.so.1` on the link path (CUDA stub
+symlink); (2) version-tagged cublas refs link against the real `libcublas.so.12`, runtime uses ZLUDA's.

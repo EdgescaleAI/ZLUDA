@@ -25,6 +25,7 @@ from zluda_diff import Cuda, compile_ptx, CUDA, CUBLAS, _ck
 MODEL = "Qwen/Qwen3-VL-2B-Instruct"
 SEQ = 16                         # patch tokens (single fake image window)
 SEED = int(sys.argv[1]) if len(sys.argv) > 1 else 20260619
+BLOCK_IDX = int(sys.argv[2]) if len(sys.argv) > 2 else 0   # which vision block to validate
 
 KSRC = r'''
 extern "C" __global__ void layernorm(const float* x,const float* g,const float* b,float* o,int rows,int cols,float eps){
@@ -84,9 +85,9 @@ def main():
     HD = vc.hidden_size // vc.num_heads; NH = vc.num_heads; HVS = vc.hidden_size; INT = vc.intermediate_size
     print(f"loading {MODEL} (vision block 0) ... hidden={HVS} heads={NH} head_dim={HD} inter={INT}", flush=True)
     model = AutoModelForImageTextToText.from_pretrained(MODEL, dtype=torch.float32).eval()
-    blk = None
-    for n, mod in model.named_modules():
-        if mod.__class__.__name__ == "Qwen3VLVisionBlock": blk = mod; break
+    blocks = [mod for n, mod in model.named_modules() if mod.__class__.__name__ == "Qwen3VLVisionBlock"]
+    blk = blocks[BLOCK_IDX]
+    print(f"validating vision block {BLOCK_IDX}/{len(blocks)-1}", flush=True)
     # identical inputs to both paths
     H = torch.randn(SEQ, HVS, dtype=torch.float32) * 0.5
     ang = torch.randn(SEQ, HD // 2, dtype=torch.float32)
@@ -139,7 +140,7 @@ def main():
     diff = np.abs(got - ref); rel = diff / (np.abs(ref) + 1e-6)
     rtol, atol = 2e-3, 2e-3
     nf = int(np.sum(diff > atol + rtol*np.abs(ref)))
-    print(f"REAL Qwen3-VL-2B vision block 0 through ZLUDA: max_abs={diff.max():.3e} max_rel={rel.max():.3e} "
+    print(f"REAL Qwen3-VL-2B vision block {BLOCK_IDX} through ZLUDA: max_abs={diff.max():.3e} max_rel={rel.max():.3e} "
           f"n_fail={nf}/{got.size}", flush=True)
     print("VERDICT:", "PASS" if nf == 0 else "FAIL")
     return 0 if nf == 0 else 1

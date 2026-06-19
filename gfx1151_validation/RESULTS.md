@@ -477,4 +477,22 @@ plus a **double-precision** case — multiple shapes/configs/dtypes, so not a si
 `RUNG11_TRSM worst_err=9.537e-07 bad_cases=0 -> PASS` (log: `rung11/rung11_trsm_run.log`). The fp64 case at
 1.1e-15 confirms the redirect is numerically exact (the fp32 ~1e-6 errors are ordinary single-precision roundoff,
 well within a 1e-3 tolerance). **PASS** — a real implementation routing both precisions to their rocBLAS twin.
-Remaining rocBLAS-layer gap from rung 10: **TOP_K** (a sampling kernel, not a cuBLAS call — different fix path).
+
+### Rung 11b — end-to-end ggml SOLVE_TRI + the BATCHED trsm gap (commit a063054b) — PASS (24/24)
+Rebuilt `test-backend-ops` in-pod and ran the actual ggml **SOLVE_TRI** op through ZLUDA to verify the redirect
+at its real call site. First pass exposed a SECOND gap the unit test missed: ggml's SOLVE_TRI dispatches small
+shapes (n≤64, k≤32) to a custom warp kernel (no cuBLAS) but routes larger shapes to **`cublasStrsmBatched`**
+(`solve_tri.cu:72`) — the *batched* API, not the `cublasStrsm_v2` fixed above. So the `[64,64,2,2]` case still
+returned `CUBLAS_STATUS_NOT_SUPPORTED`. Fixed by adding the batched redirect (commit a063054b): identity
+`FromCuda` for the batched device-pointer arrays (`*const *const f32/f64`, `*const *mut f32/f64`) in
+`zluda_common`; `strsm_batched`/`dtrsm_batched` → `rocblas_strsm_batched`/`rocblas_dtrsm_batched` in `zluda_blas`
+(signatures 1:1). After an incremental rebuild (RC=0):
+```
+SOLVE_TRI through ZLUDA on gfx1151 (test-backend-ops -o SOLVE_TRI):
+  Backend 1/2: CUDA0 [ZLUDA] — 24/24 tests passed   (was: abort at [64,64,2,2] CUBLAS_STATUS_NOT_SUPPORTED)
+  2/2 backends passed   (ZLUDA output matches the CPU reference under ggml's own correctness tolerance)
+```
+**PASS** — the complete ggml SOLVE_TRI op now runs through ZLUDA (both the fast-kernel and batched-cuBLAS paths),
+verified by ggml's built-in CUDA-vs-CPU differential, 0 NOT_SUPPORTED. Log: `rung11/rung11_solve_tri_e2e.log`.
+Remaining rocBLAS/runtime-layer gap from rung 10: **TOP_K** — its failure is `cudaMemcpy2DAsync` (device-to-device)
+at `top-k.cu:87` returning "operation not supported", i.e. a DRIVER-layer `cuMemcpy2D`-family gap, not a cuBLAS call.

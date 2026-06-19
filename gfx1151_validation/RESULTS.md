@@ -571,3 +571,16 @@ cases. **Out of the target op surface:** SSM_CONV is a Mamba/state-space causal-
 Cosmos-Reason2 transformer workload; and real Mamba/Mamba2 use **d_conv=4** — the *power-of-2, PASSING* path — so even
 within SSM the workload impact of the d_conv=3 case is negligible. Repro: `rung12/{mod_iso,ssmlong,ssmshort,mulhi3}.cu`
 + `*_run.sh` (build ZLUDA via `rung10/zbuild.sh`+`cudainstall.sh`; `test-backend-ops` via `rung12/tbo_build.sh`).
+
+**Code-level confirmation the fix is module-wide, not a bounded frontend opcode shim (verified by reading source, resume #N+19):**
+`get_state_space` (`ptx/src/pass/llvm/mod.rs:49`) maps `ast::StateSpace::Local → PRIVATE_ADDRESS_SPACE` (AMDGPU
+addrspace 5, 32-bit pointers). The `BitToPtr` int→ptr conversion (`ptx/src/pass/llvm/emit.rs:739`) applies its
+64-bit-base + zext + `InBoundsGEP` correction **only** for `Global | Generic | Const` (`emit.rs:742-764`); a `.local`
+address falls to a plain `LLVMBuildIntToPtr(src, ptr_type)` (`emit.rs:766-768`) — i.e. the 64-bit walking integer is
+truncated straight into a 32-bit private pointer with no flat-address fixup. The `convert_32bit_to_64bit.rs` pass is
+for whole **32-bit modules** only (it skips `.shared`, rewrites globals) — it does not touch this 64-bit-module local
+case. A correct fix would have to carry `.local` addresses in a flat/generic 64-bit representation and `addrspacecast`
+to private only at the actual `ld.local`/`st.local` — a representation change touching **every kernel that spills to
+`.local`** (a large fraction of the 5612-OK suite), which is exactly why it exceeds a 3-4-try unattended cap and is
+classified rather than attempted. The earned classification stands, now with the exact source citations a future
+targeted fix would start from.

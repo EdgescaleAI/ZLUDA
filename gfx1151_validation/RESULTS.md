@@ -87,3 +87,30 @@ An 8B model — weights larger than typical discrete-GPU VRAM — runs correctly
 gfx1151 APU's ~133 GB unified memory (Cosmos-Reason2-8B size class). Requires the untied-lm_head +
 cuMemFree-argtypes + >2 GB-HtoD-chunking fixes in this commit, and a pod memory limit ≥ ~70 GB for the
 8B fp32 host footprint (a container cgroup limit, not a ZLUDA/GPU limit — ZLUDA exposes the full pool).
+
+## ★★ FRONTIER — Rung 6: Qwen3-32B forward through ZLUDA (32B size class) — PASS
+`zluda_frontier.py Qwen/Qwen3-32B fp16` — the brief's named **32B size-class frontier**, demonstrated on
+the OPEN Qwen3-32B (no HF token; the same size-class-stand-in logic that used Qwen3-8B for the gated
+Cosmos-Reason2-8B). The full **64-layer, 32.0B-param** forward runs entirely through ZLUDA primitives
+(cuBLAS→rocBLAS GEMMs + nvrtc→PTX→ZLUDA kernels) on gfx1151; graded eval-style (per TEST-STRATEGY, the
+BF16/FP16 tier grades by behavioral top-k agreement, NOT bit-diff) vs an independent torch-CPU **fp16**
+reference:
+- ZLUDA top-10 next-token ids **exactly match** the reference, **in identical order** (`top10_setmatch=True`)
+- `argmax_match=True`, `top5_match=True`, `max_logit_diff=0.047` (expected fp32-GEMM-on-fp16-weights vs
+  fp16-CPU compute; ids unchanged)
+- config: H 5120, L 64, NQ 64, NKV 8, HD 128, I 25600, V 151936
+
+Memory: fp16 weights ~**64 GB** (fp32 would be 128 GB > the node's ~120 GB RAM — physically impossible,
+which is *why* the frontier is graded in 2-byte precision). fp16 ≡ BF16 footprint (2 bytes/param), so this
+is exactly the brief's "32B in BF16 (~64 GB) fits the ~96 GB unified pool" thesis. The harness is
+memory-frugal: it streams weights to fp16 numpy popping each tensor out of the state_dict (host RAM stays
+~one model size, not two), and `zluda_qwen.forward` upcasts each weight to fp32 only at upload and frees
+every layer's device buffers before the next (device footprint is per-layer, not whole-model).
+
+A **32-billion-parameter** model — far beyond typical discrete-GPU VRAM — runs correctly through ZLUDA on
+a single gfx1151 APU's unified memory. This is the highest reachable dense-model rung tonight: 32B is the
+largest *dense* Qwen3 (235B is MoE at ~470 GB, exceeds node RAM); Cosmos-Reason2 *itself* additionally
+needs the gated HF token + an eval oracle + the vision tower (blocked without the user).
+
+Repro: `HSA_OVERRIDE_GFX_VERSION=11.5.1 LD_LIBRARY_PATH=<zluda>:<nvrtc>:/opt/rocm/lib python3 zluda_frontier.py Qwen/Qwen3-32B fp16`
+(pod memory limit ≥ ~100 GB for the 32B fp16 host footprint).

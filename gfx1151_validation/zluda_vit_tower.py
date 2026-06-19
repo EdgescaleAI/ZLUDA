@@ -20,6 +20,7 @@ from zluda_diff import Cuda, compile_ptx, CUDA, CUBLAS, _ck
 from zluda_vit_real import KSRC, Z, P, MODEL, SEQ
 
 SEED = int(sys.argv[1]) if len(sys.argv) > 1 else 20260619
+DEPTH_LIMIT = int(sys.argv[2]) if len(sys.argv) > 2 else 0   # 0 = all blocks; else first N
 
 def zblock(z, dH, W, dcos, dsin, SEQ, NH, HD, INT, EPS=1e-6):
     Wd = NH*HD
@@ -50,6 +51,7 @@ def main():
     print(f"loading {MODEL} full vision-block stack (depth={vc.depth}) ...", flush=True)
     model = AutoModelForImageTextToText.from_pretrained(MODEL, dtype=torch.float32).eval()
     blocks = [m for n, m in model.named_modules() if m.__class__.__name__ == "Qwen3VLVisionBlock"]
+    if DEPTH_LIMIT: blocks = blocks[:DEPTH_LIMIT]
     H = torch.randn(SEQ, HVS, dtype=torch.float32) * 0.5
     ang = torch.randn(SEQ, HD // 2, dtype=torch.float32); emb = torch.cat([ang, ang], -1)
     cos = emb.cos(); sin = emb.sin(); cu = torch.tensor([0, SEQ], dtype=torch.int32)

@@ -275,6 +275,76 @@ pub(crate) fn dtrsm_v2(
     Ok(())
 }
 
+pub(crate) fn strsm_batched(
+    handle: &Handle,
+    side: rocblas_side,
+    uplo: rocblas_fill,
+    trans: rocblas_operation,
+    diag: rocblas_diagonal,
+    m: ::core::ffi::c_int,
+    n: ::core::ffi::c_int,
+    alpha: *const f32,
+    a: *const *const f32,
+    lda: ::core::ffi::c_int,
+    b: *const *mut f32,
+    ldb: ::core::ffi::c_int,
+    batch_count: ::core::ffi::c_int,
+) -> cublasStatus_t {
+    unsafe {
+        rocblas()?.rocblas_strsm_batched(
+            handle.rocm_handle,
+            side,
+            uplo,
+            trans,
+            diag,
+            m,
+            n,
+            alpha,
+            a,
+            lda,
+            b,
+            ldb,
+            batch_count,
+        )
+    }?;
+    Ok(())
+}
+
+pub(crate) fn dtrsm_batched(
+    handle: &Handle,
+    side: rocblas_side,
+    uplo: rocblas_fill,
+    trans: rocblas_operation,
+    diag: rocblas_diagonal,
+    m: ::core::ffi::c_int,
+    n: ::core::ffi::c_int,
+    alpha: *const f64,
+    a: *const *const f64,
+    lda: ::core::ffi::c_int,
+    b: *const *mut f64,
+    ldb: ::core::ffi::c_int,
+    batch_count: ::core::ffi::c_int,
+) -> cublasStatus_t {
+    unsafe {
+        rocblas()?.rocblas_dtrsm_batched(
+            handle.rocm_handle,
+            side,
+            uplo,
+            trans,
+            diag,
+            m,
+            n,
+            alpha,
+            a,
+            lda,
+            b,
+            ldb,
+            batch_count,
+        )
+    }?;
+    Ok(())
+}
+
 pub(crate) fn destroy_v2(handle: cublasHandle_t) -> cublasStatus_t {
     zluda_common::drop_checked::<Handle>(handle)
 }

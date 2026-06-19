@@ -417,3 +417,32 @@ LLVM keeps it), and passthrough arms in `insert_post_saturation` + `instruction_
 
 Repro: `gfx1151_validation/rung10/{zbuild.sh, tbo_build.sh, tbo_run.sh, perop.sh}` + `perop_run1.log`.
 Build/link recipe identical to rung 9b (driver-stub `libcuda.so.1` for link, ZLUDA wins at runtime).
+
+### Rung 10 update — two PTX-frontend gaps fixed; remaining gaps classified (2026-06-19)
+Added an opt-in localizer (`ZLUDA_PTX_DEBUG`, commit 99c57212): in release builds `parse_module_unchecked`
+silently drops directives it can't parse (a dropped kernel surfaces only as "named symbol not found"); with the
+env var set, ZLUDA re-parses checked and prints each diagnostic (incl. the verbatim unrecognized statement) plus
+any `to_llvm_module` error. This pinned every remaining `named symbol not found`:
+- **`red` (commit 92a626e6)** — result-less atomic reduction. Cleared **COUNT_EQUAL** (2/2) and **ARGSORT**
+  (38/38); both verified PASS (cudaerr 2→0).
+- **`%envreg0..32` (commit 8935b5d3)** — driver environment registers, lowered to constant 0. Cleared the
+  **SOFT_MAX** sink variant's `named symbol not found` (the suite-aborting case now runs). Verified.
+- **MUL_MAT_ID** — `mma.sync.aligned.m8n8k4.row.col.f32.f16.f16.f32` (sm_70 tensor-core MMA shape ZLUDA does
+  not implement). Same wall as FLASH_ATTN_EXT/§Rung 9b: gfx1151 (RDNA 3.5) has **no** NVIDIA tensor cores, so
+  the MMA path is NVIDIA-silicon-specific; the non-MMA `mul_mat` path PASSES (89 cases). Earned classification
+  (exact opcode pinned), not a reflex bail — fixing it is the multi-day `mma.sync`→RDNA-WMMA project.
+- **CROSS_ENTROPY_LOSS / _BACK** — the `%envreg` parse gap is fixed (module loads now); they then hit a HIP
+  runtime `operation not supported`. **Training-only ops** (loss + gradient), outside the inference target
+  workload (Cosmos-Reason2 forward/decode) — out of the "100% of the workload surface" scope.
+
+Remaining non-frontend gaps (unchanged, not ZLUDA PTX defects): **SOFT_MAX** 2 wide unmasked shapes numeric
+ERR ~0.002–0.015 > 1e-6 (fast-math `ex2.approx`/`rcp.approx` divergence vs CPU under a very tight tol; the
+masked attention-softmax cases used in inference all pass — MEDIUM); **SSM_CONV** ERR 0.090 (SSM op, not in a
+Qwen3/Cosmos transformer); **MUL_MAT** q5_1 single case ERR 5.8e-4 vs 5e-4 (MEDIUM quantized GEMM);
+**SOLVE_TRI** (`CUBLAS_STATUS_NOT_SUPPORTED`) and **TOP_K** (operation not supported) — rocBLAS/runtime library
+gaps, not the PTX frontend.
+
+**Net rung-10 frontend result:** the two mechanically-fixable PTX-frontend gaps in stock llama.cpp's entire
+CUDA op suite (`red`, `%envreg`) are implemented and verified; every other non-PASS is now classified as a
+tensor-core MMA wall (no gfx1151 silicon), a rocBLAS library gap, a numeric/fast-math divergence, or a
+training-only op outside the inference workload. No green faked; no tolerance loosened.

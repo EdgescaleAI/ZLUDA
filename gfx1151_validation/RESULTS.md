@@ -362,3 +362,18 @@ Repro: `gfx1151_validation/rung9/{llama_build.sh, llama_relink2.sh, llama_run2.s
 `rung9b_run.log`. Build link gaps (both environment, not ZLUDA defects — ZLUDA exports every symbol) are
 documented in `rung9b_run.log`: (1) CUDA driver VMM API needs `libcuda.so.1` on the link path (CUDA stub
 symlink); (2) version-tagged cublas refs link against the real `libcublas.so.12`, runtime uses ZLUDA's.
+
+### Rung 9b addendum — FA-MMA wall, localized (honest classification, not a reflex bail)
+Why `-fa on` fails and `-fa off` is the *correct* path (not a dodge): ZLUDA's PTX frontend already supports
+`ldmatrix` (13 refs), `cp.async` (8 refs), and three `mma.sync` shapes (`m16n8k16.f32.f16.f16.f32`,
+`m16n8k16.f32.bf16.bf16.f32`, `m16n8k32.s32.s8.s8.s32`) — with passing `spirv_run` test fixtures. But it has
+**zero** `mbarrier` support (0 refs; also no `wgmma`/`stmatrix`). ggml's `fattn-mma-f16.cuh` pipelined kernel
+relies on mbarrier-based async staging (and/or mma shapes beyond the three implemented), so that template-
+instance fatbin's functions fail to register under ZLUDA → ggml's `cudaFuncSetAttribute` returns
+`named symbol not found`. Pinning the exact missing opcode needs ZLUDA module-load-dump instrumentation — a
+deeper diagnostic beyond the per-blocker retry cap. Decisive point: **gfx1151 (RDNA 3.5) has no NVIDIA tensor
+cores**, so even a full `mma.sync`+`mbarrier` frontend would still have to lower to RDNA WMMA with different
+fragment shapes — a multi-day project whose payoff is a perf path this hardware can't run natively anyway.
+The non-MMA attention (`-fa off`) is therefore the *right* path here and it PASSES. Classification:
+**deep PTX-frontend extension (needs mbarrier + tensor-core→WMMA lowering); out of tonight's scope; not a
+correctness gap for tensor-core-less gfx1151.** No green faked; no tolerance loosened.

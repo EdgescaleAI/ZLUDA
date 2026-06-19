@@ -76,3 +76,14 @@ is SASS-only). Graded vs the torch-cpu-fp32 fixture:
 
 A whole 28-layer transformer (GQA 16q/8kv, head_dim 128, tied 151936-vocab) runs correctly through
 ZLUDA on gfx1151. Matching 10 logits + 8 consecutive argmaxes is conclusive.
+
+## ★ Scale: Qwen3-1.7B and Qwen3-8B forwards through ZLUDA — PASS
+`zluda_scale.py` runs larger Qwen3 models through the same ZLUDA forward, self-graded vs a live
+torch-CPU-fp32 reference:
+- **Qwen3-1.7B** (~2.03B params, ~8 GB fp32): top-10 ids exact, logits to 3 decimals.
+- **Qwen3-8B** (~8.19B params, **32.8 GB fp32**, untied LM head): top-10 ids **exact**, max_logit_diff **0.000**.
+
+An 8B model — weights larger than typical discrete-GPU VRAM — runs correctly through ZLUDA on the
+gfx1151 APU's ~133 GB unified memory (Cosmos-Reason2-8B size class). Requires the untied-lm_head +
+cuMemFree-argtypes + >2 GB-HtoD-chunking fixes in this commit, and a pod memory limit ≥ ~70 GB for the
+8B fp32 host footprint (a container cgroup limit, not a ZLUDA/GPU limit — ZLUDA exposes the full pool).

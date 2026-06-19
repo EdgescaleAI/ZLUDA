@@ -51,3 +51,10 @@ python3 zluda_diff.py            # 20/20
 cargo test -p ptx --release -- _amdgpu _cuda   # 360/360
 ```
 Fixtures + harness vendored from the CUDA-Bridge project (same owner) as the numeric oracle.
+
+## Composed decoder layer (rung 2.5) — PASS
+`zluda_layer.py` runs a full **Qwen3-style decoder layer** device-resident through ZLUDA
+(RMSNorm → QKV proj cuBLAS → per-head QK-norm → RoPE → causal GQA attention → O-proj cuBLAS
+→ residual → RMSNorm → SwiGLU MLP 3×cuBLAS → residual), graded vs an independent pure-Python
+fp64 oracle. 3 seeds, all PASS, n_fail=0/384, max_abs ~1–2e-6 (rtol 1e-4/atol 1e-5 — appropriate
+for a ~12-op fp32 chain). Proves the op set composes, not just individual ops.

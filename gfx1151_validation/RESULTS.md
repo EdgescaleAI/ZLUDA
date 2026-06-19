@@ -531,3 +531,43 @@ already classified for MUL_MAT_ID / FLASH_ATTN_EXT. gfx1151 (RDNA 3.5) has no NV
 the multi-day `mma.sync`→RDNA-WMMA lowering project (out of an unattended-night cap, perf-only — the non-MMA
 mul_mat path passes thousands of cases). **No new mechanical frontend/library gap remains in the suite**: every
 remaining non-PASS is the MMA hardware wall, a non-transformer SSM numeric, a training-only op, or a fast-math MEDIUM.
+
+## Rung 12 — SSM_CONV numeric FAIL ROOT-CAUSED to a ZLUDA `.local` walking-base codegen bug (2026-06-19)
+Drove the rung-11 "9× SSM_CONV ERR ~0.09" finding to a precise root cause through five escalating reproducers
+(`rung12/`), built + run through ZLUDA on gfx1151 (compute_70 PTX, `HSA_OVERRIDE_GFX_VERSION=11.5.1`). Build = same
+HEAD `1a83d7f5` (NO ZLUDA source change this session — diagnostics only, so zero regression risk to the 5612-OK suite).
+
+**Narrowed (real `test-backend-ops` `-o SSM_CONV -b CUDA0`): 42/45 cases PASS.** The 3 FAILs are UNIQUELY
+`d_conv=3, ne_a=[6,*,1,1]` (n_t=4, n_s=1): NMSE 0.086 / 0.092 / 0.093 for d_inner=1024/1536/2048 (threshold 1e-7).
+ALL long-token (n_t=64, shared-memory `ssm_conv_long_token_f32`) cases, ALL n_s=4, ALL n_t=1, and ALL d_conv≥4
+cases PASS. Not CUDA-graphs (`GGML_CUDA_DISABLE_GRAPHS=1` still fails), not the PDL launch path (`GGML_CUDA_PDL=0`
+still fails).
+
+**Root cause (localized, deterministic — `gpu` value identical at threads=1 and 2 → not a race):** nvcc lowers the
+short kernel's `x[(i+j)%d_conv]` (dynamic index into the per-thread spilled `.local` array `float x[d_conv]`) into a
+**walking-base `.local` pointer**: `addr = frame_base + 4·idx − 12·⌊idx/3⌋` (`= base + 4·(idx%3)`), where `⌊idx/3⌋`
+comes from the divide-by-3 magic `mul.hi.u64 idx, 0xAAAAAAAAAAAAAAAB; shr 1`, and the base **advances 8 bytes/iter
+over a 12-byte depot** (loop unrolled ×2), transiently leaving the frame and relying on the `−12·⌊idx/3⌋` term to wrap
+back. ZLUDA maps `.local`→AMDGPU **private (addrspace 5), whose pointers are 32-bit**, while PTX does this address
+arithmetic in 64-bit (`%rd`); the `ptrtoint`/`inttoptr` round-trip on a *walking, transiently-out-of-frame* `.local`
+address diverges → a deterministic wrong-slot read at token **i=1**. The `%4` (power-of-2) case uses a plain mask and a
+fixed base → no walking → PASS.
+
+**Why every isolated sub-construct PASSES (so it's an emergent interaction, not one mistranslatable opcode):**
+- `mod_iso.cu`: `modk` (u64 magic-div-by-3 *value* → global) 0/64; `miniconv` (global-array `%3` conv) 0/64;
+  `slidewin<3>`/`<4>` (single-thread circular local buffer) worst ~1e-7.
+- `mulhi3.cu`: inline-PTX `mul.hi.u64·magic>>1 == n/3` 0/24; `circ3` (single-thread circular local buffer w/ forced
+  spill, same `mul.lo.s64 −12` / `ld.local [+12]` rebase constructs) 0/4.
+- `ssmlong.cu`: verbatim `ssm_conv_long_token_f32` (`extern __shared__`+`__syncthreads`+cooperative load) 0/8192;
+  `smem_sanity` 0/128.
+- `ssmshort.cu`: verbatim short kernel — reproduces (NMSE 0.091, all errors at i=1); d_conv=4 control PASS;
+  thread-sweep shows the per-channel wrong value is deterministic (identical at threads 1 & 2).
+The failing combination is specifically **[spilled `.local` + walking frame base + non-power-of-2 modulo (d_conv=3)]**.
+
+**Classification (earned, evidence-backed — not a reflex bail):** a real ZLUDA codegen bug in `.local`/addrspace-5
+address arithmetic, but the correct fix is a 32-bit-private-pointer address-generation correction in the AMDGPU
+backend path — beyond a bounded unattended-night frontend opcode fix, and risky to the thousands of passing `.local`
+cases. **Out of the target op surface:** SSM_CONV is a Mamba/state-space causal-conv op, NOT in the Qwen3-VL /
+Cosmos-Reason2 transformer workload; and real Mamba/Mamba2 use **d_conv=4** — the *power-of-2, PASSING* path — so even
+within SSM the workload impact of the d_conv=3 case is negligible. Repro: `rung12/{mod_iso,ssmlong,ssmshort,mulhi3}.cu`
++ `*_run.sh` (build ZLUDA via `rung10/zbuild.sh`+`cudainstall.sh`; `test-backend-ops` via `rung12/tbo_build.sh`).

@@ -114,3 +114,22 @@ needs the gated HF token + an eval oracle + the vision tower (blocked without th
 
 Repro: `HSA_OVERRIDE_GFX_VERSION=11.5.1 LD_LIBRARY_PATH=<zluda>:<nvrtc>:/opt/rocm/lib python3 zluda_frontier.py Qwen/Qwen3-32B fp16`
 (pod memory limit ≥ ~100 GB for the 32B fp16 host footprint).
+
+## ★ Rung 6.5 — composed Qwen3-VL VISION-tower (ViT) block + patch-merger through ZLUDA — PASS
+The whole-night text ladder (rungs 0→6) climbed the **language** half of the coverage target
+(Cosmos-Reason2-8B = Qwen3-**VL**, a vision-language model). `zluda_vit.py` closes the **vision** half —
+the analog of rung 2.5 (composed decoder layer) but for the ViT, exercising a genuinely different op mix
+from the text decoder: **LayerNorm** (mean+var+bias, not RMSNorm), **GELU** tanh-approx (not SwiGLU),
+**FULL bidirectional MHA** (not causal GQA), **2D-RoPE** (row/col positional, not 1D), and a **spatial
+2×2 patch merge**. The composed forward runs device-resident through ZLUDA — cuBLAS→rocBLAS GEMMs chained
+with nvrtc→PTX→ZLUDA elementwise/attention kernels — and is graded vs an independent pure-Python **fp64**
+oracle implementing the same spec, so the diff measures whether the op set *composes* through ZLUDA.
+
+Block: LayerNorm → QKV proj (cuBLAS) → 2D-RoPE → full attention → out-proj → residual → LayerNorm →
+MLP fc1·GELU·fc2 → residual. Merger: spatial 2×2 merge → LayerNorm → fc1·GELU·fc2.
+
+**6 seeds (default, 1, 7, 42, 2026, 99999) all PASS**, `n_fail=0/256` every seed, `max_abs` 3.5e-6–5.8e-6
+(rtol 1e-4 / atol 1e-5 — appropriate for this fp32 op chain). Both the vision tower and the language tower
+of the target VLM now compose correctly through ZLUDA on gfx1151.
+
+Repro: `HSA_OVERRIDE_GFX_VERSION=11.5.1 LD_LIBRARY_PATH=<zluda>:<nvrtc>:/opt/rocm/lib python3 zluda_vit.py [seed]`

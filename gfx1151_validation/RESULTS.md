@@ -133,3 +133,20 @@ MLP fc1·GELU·fc2 → residual. Merger: spatial 2×2 merge → LayerNorm → fc
 of the target VLM now compose correctly through ZLUDA on gfx1151.
 
 Repro: `HSA_OVERRIDE_GFX_VERSION=11.5.1 LD_LIBRARY_PATH=<zluda>:<nvrtc>:/opt/rocm/lib python3 zluda_vit.py [seed]`
+
+## ★ Rung 6.75 — composed cross-modal VLM FUSION seam through ZLUDA — PASS
+Rungs 0→6 proved the language tower (real models 0.6B→32B) and 6.5 the vision tower — but SEPARATELY.
+`zluda_vlm.py` composes the one VLM-unique path neither tower alone exercises: an end-to-end mini-VLM
+forward where image embeddings are fused into the text token stream. Pipeline, device-resident through
+ZLUDA: vision encoder (LayerNorm → projector GEMM → GELU) → **SCATTER** the N image tokens into the
+text-embedding stream at the `<image>` placeholder rows → **2 stacked Qwen3 decoder layers** (RMSNorm /
+QK-norm / RoPE / causal-GQA / SwiGLU) running causal attention over the **mixed image+text sequence** →
+final RMSNorm → LM-head GEMM → logits. The genuinely new path vs prior harnesses is the cross-modal
+scatter/splice and the decoder operating over a fused sequence; graded vs an independent pure-Python fp64
+oracle.
+
+**6 seeds (default, 1, 7, 42, 2026, 99999) all PASS**, `n_fail=0/256` every seed, `max_abs` 7.5e-7–1.4e-6,
+and the **last-token argmax matches the oracle every seed** (a VLM greedy decode would emit the same token).
+The full VLM forward *structure* — both towers plus the fusion seam — composes correctly through ZLUDA.
+
+Repro: `HSA_OVERRIDE_GFX_VERSION=11.5.1 LD_LIBRARY_PATH=<zluda>:<nvrtc>:/opt/rocm/lib python3 zluda_vlm.py [seed]`

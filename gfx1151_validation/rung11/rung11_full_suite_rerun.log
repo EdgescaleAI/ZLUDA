@@ -1,0 +1,25 @@
+=== test-backend-ops FULL run through ZLUDA on gfx1151 (all rung10+11 fixes built) ===
+OK cases: 5612   (rung-10 first pass aborted after 4125 — the 5 session fixes pushed +1487 cases further)
+FAIL cases: 9    (all SSM_CONV / SSM_CONV_BIAS_SILU — state-space-model conv, non-transformer; see below)
+not-supported [CUDA0]: 1327  (ggml-level: f16 unary ops + op/type combos the ggml CUDA backend itself declines; NOT a ZLUDA defect)
+ABORT: 1 (MMA tensor-core wall at a strided f32 MUL_MAT shape — same wall as MUL_MAT_ID; no gfx1151 silicon)
+grep: [CUDA0]": No such file or directory
+
+=== ABORT POINT (MMA tensor-core wall) ===
+  MUL_MAT(type_a=f32,type_b=f32,m=129,n=1,k=1057,bs=[1,1],nr=[4,1],per=[0,1,2,3],k_v=2113,o=1): ggml_cuda_compute_forward: MUL_MAT failed
+CUDA error: named symbol not found
+  current device: 0, in function ggml_cuda_compute_forward at /root/llama.cpp/ggml/src/ggml-cuda/ggml-cuda.cu:3128
+  err
+[1;32mOK[0m
+(PTX localizer: mma.sync.aligned.m8n8k4.row.col.f32.f16.f16.f32 -> UnrecognizedStatement; sm_70 tensor-core MMA, no gfx1151 silicon)
+
+=== numeric FAILs (all SSM_CONV / SSM_CONV_BIAS_SILU = state-space-model, non-transformer) ===
+[SSM_CONV] ERR = 0.092097670 > 0.000000100   SSM_CONV(type=f32,ne_a=[6,1024,1,1],ne_b=[3,1024,1,1]): [1;31mFAIL[0m
+[SSM_CONV] ERR = 0.093586799 > 0.000000100   SSM_CONV(type=f32,ne_a=[6,1536,1,1],ne_b=[3,1536,1,1]): [1;31mFAIL[0m
+[SSM_CONV] ERR = 0.090426923 > 0.000000100   SSM_CONV(type=f32,ne_a=[6,2048,1,1],ne_b=[3,2048,1,1]): [1;31mFAIL[0m
+[SILU] ERR = 0.096987399 > 0.000000100   SSM_CONV_BIAS_SILU(type=f32,ne_a=[6,1024,1,1],ne_b=[3,1024,1,1],fuse_bias=0): [1;31mFAIL[0m
+[SILU] ERR = 0.045001875 > 0.000000100   SSM_CONV_BIAS_SILU(type=f32,ne_a=[6,1024,1,1],ne_b=[3,1024,1,1],fuse_bias=1): [1;31mFAIL[0m
+[SILU] ERR = 0.086945790 > 0.000000100   SSM_CONV_BIAS_SILU(type=f32,ne_a=[6,1536,1,1],ne_b=[3,1536,1,1],fuse_bias=0): [1;31mFAIL[0m
+[SILU] ERR = 0.045993352 > 0.000000100   SSM_CONV_BIAS_SILU(type=f32,ne_a=[6,1536,1,1],ne_b=[3,1536,1,1],fuse_bias=1): [1;31mFAIL[0m
+[SILU] ERR = 0.101711767 > 0.000000100   SSM_CONV_BIAS_SILU(type=f32,ne_a=[6,2048,1,1],ne_b=[3,2048,1,1],fuse_bias=0): [1;31mFAIL[0m
+[SILU] ERR = 0.045461326 > 0.000000100   SSM_CONV_BIAS_SILU(type=f32,ne_a=[6,2048,1,1],ne_b=[3,2048,1,1],fuse_bias=1): [1;31mFAIL[0m

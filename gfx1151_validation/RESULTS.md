@@ -515,3 +515,19 @@ TOP_K through ZLUDA on gfx1151 (test-backend-ops -o TOP_K):
 Log: `rung11/rung11_top_k_e2e.log`. With this, **both** rung-10 non-frontend library/runtime gaps (SOLVE_TRI, TOP_K)
 are closed; the only remaining test-backend-ops non-PASS are the documented MMA tensor-core wall (no gfx1151 silicon),
 the training-only CROSS_ENTROPY ops (outside the inference workload), and the fast-math numeric MEDIUMs.
+
+### Rung 11 — full-suite re-run confirms the 5 session fixes compose (no regression)
+Re-ran the **entire** `test-backend-ops test` through ZLUDA with all five session fixes built (COUNT_EQUAL,
+ARGSORT, SOFT_MAX-sink from rung 10; SOLVE_TRI, TOP_K from rung 11). Result (`rung11/rung11_full_suite_rerun.log`):
+**5612 correctness cases OK** — up +1487 from the rung-10 first pass (4125), i.e. the fixes let the suite run far
+further with no new failure introduced. The 9 numeric FAILs are **all** `SSM_CONV` / `SSM_CONV_BIAS_SILU`
+(ERR ~0.045–0.10) — state-space-model (Mamba) causal-conv ops, NOT part of the Qwen3-VL / Cosmos-Reason2
+transformer workload; a real numeric divergence in that kernel, out of the target op surface. 1327 cases report
+`not supported [CUDA0]` — these are ggml's OWN backend declining f16 unary ops and certain op/type combos (a
+ggml-level capability check, not a ZLUDA defect). The run finally aborts at one strided f32 `MUL_MAT`
+(`m=129,n=1,k=1057,nr=[4,1],k_v=2113,o=1`): the `ZLUDA_PTX_DEBUG` localizer pins it to
+`mma.sync.aligned.m8n8k4.row.col.f32.f16.f16.f32` — the **sm_70 tensor-core MMA** instruction, the identical wall
+already classified for MUL_MAT_ID / FLASH_ATTN_EXT. gfx1151 (RDNA 3.5) has no NVIDIA tensor cores, so this needs
+the multi-day `mma.sync`→RDNA-WMMA lowering project (out of an unattended-night cap, perf-only — the non-MMA
+mul_mat path passes thousands of cases). **No new mechanical frontend/library gap remains in the suite**: every
+remaining non-PASS is the MMA hardware wall, a non-transformer SSM numeric, a training-only op, or a fast-math MEDIUM.

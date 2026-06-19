@@ -496,3 +496,22 @@ SOLVE_TRI through ZLUDA on gfx1151 (test-backend-ops -o SOLVE_TRI):
 verified by ggml's built-in CUDA-vs-CPU differential, 0 NOT_SUPPORTED. Log: `rung11/rung11_solve_tri_e2e.log`.
 Remaining rocBLAS/runtime-layer gap from rung 10: **TOP_K** — its failure is `cudaMemcpy2DAsync` (device-to-device)
 at `top-k.cu:87` returning "operation not supported", i.e. a DRIVER-layer `cuMemcpy2D`-family gap, not a cuBLAS call.
+
+### Rung 11c — ggml TOP_K + the cuMemcpy2DAsync DRIVER gap (commit pending) — PASS (445/445)
+The last rung-10 library/runtime gap. ggml's **TOP_K** runs an argsort then `cudaMemcpy2DAsync` (device→device,
+`top-k.cu:87`) to gather the top-k indices; that returned "operation not supported". Root cause: ZLUDA's driver
+shim implements the *synchronous* `cuMemcpy2D_v2` (→ `hipMemcpyParam2D`) but NOT the *async* `cuMemcpy2DAsync_v2`,
+so the real CUDA runtime's `cudaMemcpy2DAsync` fell through to `unimplemented()` → `CUDA_ERROR_NOT_SUPPORTED`.
+Fixed by adding the async driver entry point: `memory::copy_2d_async_v2(memcpy, stream)` →
+`hipMemcpyParam2DAsync(&memcpy, stream)` in `zluda/src/impl/memory.rs`, and `cuMemcpy2DAsync_v2` to the
+implemented list in `zluda/src/lib.rs` (the `CUDA_MEMCPY2D`→`hip_Memcpy2D` and `CUstream`→`hipStream_t` FromCuda
+conversions already existed). After an incremental rebuild (RC=0):
+```
+TOP_K through ZLUDA on gfx1151 (test-backend-ops -o TOP_K):
+  Backend 1/2: CUDA0 [ZLUDA] — 445/445 tests passed   (was: "operation not supported" at top-k.cu:87)
+  2/2 backends passed   (ZLUDA output matches the CPU reference under ggml's own correctness tolerance)
+```
+**PASS** — ggml's TOP_K now runs through ZLUDA, verified by ggml's built-in CUDA-vs-CPU differential, 0 NOT_SUPPORTED.
+Log: `rung11/rung11_top_k_e2e.log`. With this, **both** rung-10 non-frontend library/runtime gaps (SOLVE_TRI, TOP_K)
+are closed; the only remaining test-backend-ops non-PASS are the documented MMA tensor-core wall (no gfx1151 silicon),
+the training-only CROSS_ENTROPY ops (outside the inference workload), and the fast-math numeric MEDIUMs.

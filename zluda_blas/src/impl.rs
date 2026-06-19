@@ -209,6 +209,72 @@ pub(crate) fn sgemm_v2(
     Ok(())
 }
 
+pub(crate) fn strsm_v2(
+    handle: &Handle,
+    side: rocblas_side,
+    uplo: rocblas_fill,
+    trans: rocblas_operation,
+    diag: rocblas_diagonal,
+    m: ::core::ffi::c_int,
+    n: ::core::ffi::c_int,
+    alpha: *const f32,
+    a: *const f32,
+    lda: ::core::ffi::c_int,
+    b: *mut f32,
+    ldb: ::core::ffi::c_int,
+) -> cublasStatus_t {
+    unsafe {
+        rocblas()?.rocblas_strsm(
+            handle.rocm_handle,
+            side,
+            uplo,
+            trans,
+            diag,
+            m,
+            n,
+            alpha,
+            a,
+            lda,
+            b,
+            ldb,
+        )
+    }?;
+    Ok(())
+}
+
+pub(crate) fn dtrsm_v2(
+    handle: &Handle,
+    side: rocblas_side,
+    uplo: rocblas_fill,
+    trans: rocblas_operation,
+    diag: rocblas_diagonal,
+    m: ::core::ffi::c_int,
+    n: ::core::ffi::c_int,
+    alpha: *const f64,
+    a: *const f64,
+    lda: ::core::ffi::c_int,
+    b: *mut f64,
+    ldb: ::core::ffi::c_int,
+) -> cublasStatus_t {
+    unsafe {
+        rocblas()?.rocblas_dtrsm(
+            handle.rocm_handle,
+            side,
+            uplo,
+            trans,
+            diag,
+            m,
+            n,
+            alpha,
+            a,
+            lda,
+            b,
+            ldb,
+        )
+    }?;
+    Ok(())
+}
+
 pub(crate) fn destroy_v2(handle: cublasHandle_t) -> cublasStatus_t {
     zluda_common::drop_checked::<Handle>(handle)
 }

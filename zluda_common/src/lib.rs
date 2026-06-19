@@ -200,6 +200,8 @@ from_cuda_nop!(
     *mut usize,
     *const f32,
     *mut f32,
+    *const f64,
+    *mut f64,
     *const ::core::ffi::c_void,
     *const *const ::core::ffi::c_void,
     *const *mut ::core::ffi::c_void,
@@ -484,6 +486,37 @@ impl<'a, E: CudaErrorType> FromCuda<'a, cublasOperation_t, E> for rocblas_operat
             cublasOperation_t::CUBLAS_OP_C => {
                 rocblas_operation::rocblas_operation_conjugate_transpose
             }
+            _ => return Err(E::NOT_SUPPORTED),
+        })
+    }
+}
+
+impl<'a, E: CudaErrorType> FromCuda<'a, cublasSideMode_t, E> for rocblas_side {
+    fn from_cuda(t: &'a cublasSideMode_t) -> Result<Self, E> {
+        Ok(match *t {
+            cublasSideMode_t::CUBLAS_SIDE_LEFT => rocblas_side::rocblas_side_left,
+            cublasSideMode_t::CUBLAS_SIDE_RIGHT => rocblas_side::rocblas_side_right,
+            _ => return Err(E::NOT_SUPPORTED),
+        })
+    }
+}
+
+impl<'a, E: CudaErrorType> FromCuda<'a, cublasFillMode_t, E> for rocblas_fill {
+    fn from_cuda(t: &'a cublasFillMode_t) -> Result<Self, E> {
+        Ok(match *t {
+            cublasFillMode_t::CUBLAS_FILL_MODE_LOWER => rocblas_fill::rocblas_fill_lower,
+            cublasFillMode_t::CUBLAS_FILL_MODE_UPPER => rocblas_fill::rocblas_fill_upper,
+            cublasFillMode_t::CUBLAS_FILL_MODE_FULL => rocblas_fill::rocblas_fill_full,
+            _ => return Err(E::NOT_SUPPORTED),
+        })
+    }
+}
+
+impl<'a, E: CudaErrorType> FromCuda<'a, cublasDiagType_t, E> for rocblas_diagonal {
+    fn from_cuda(t: &'a cublasDiagType_t) -> Result<Self, E> {
+        Ok(match *t {
+            cublasDiagType_t::CUBLAS_DIAG_NON_UNIT => rocblas_diagonal::rocblas_diagonal_non_unit,
+            cublasDiagType_t::CUBLAS_DIAG_UNIT => rocblas_diagonal::rocblas_diagonal_unit,
             _ => return Err(E::NOT_SUPPORTED),
         })
     }

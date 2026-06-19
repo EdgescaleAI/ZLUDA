@@ -111,6 +111,23 @@ fn get_best_ptx_and_compile(
                 } else {
                     Ok(ptx_parser::parse_module_unchecked(src))
                 };
+                // Opt-in localization of frontend gaps: in release builds
+                // `parse_module_unchecked` silently drops directives it can't
+                // parse (a dropped kernel later surfaces as CUDA "named symbol
+                // not found"). With ZLUDA_PTX_DEBUG set, re-parse checked and
+                // print each diagnostic, including the verbatim unrecognized
+                // statement, so the unsupported PTX construct can be pinned.
+                if std::env::var_os("ZLUDA_PTX_DEBUG").is_some() {
+                    if let Err(errs) = ptx_parser::parse_module_checked(src) {
+                        eprintln!(
+                            "[ZLUDA_PTX_DEBUG] {} parse diagnostic(s) in a PTX module:",
+                            errs.len()
+                        );
+                        for e in errs.iter().take(32) {
+                            eprintln!("[ZLUDA_PTX_DEBUG]   [{}] {}", e.as_ref(), e);
+                        }
+                    }
+                }
                 match maybe_ast {
                     Err(_) => ControlFlow::Continue(acc),
                     Ok(ast) => {
@@ -252,7 +269,12 @@ fn compile_and_cache(
         },
         |_| {},
     )
-    .map_err(|_| CUerror::UNKNOWN)?;
+    .map_err(|e| {
+        if std::env::var_os("ZLUDA_PTX_DEBUG").is_some() {
+            eprintln!("[ZLUDA_PTX_DEBUG] ptx::to_llvm_module failed: {:?}", e);
+        }
+        CUerror::UNKNOWN
+    })?;
     let ptx_impl = llvm_module.linked_bitcode();
     let sm_version = llvm_module.metadata.sm_version;
     let elf_module = llvm_zluda::compile(

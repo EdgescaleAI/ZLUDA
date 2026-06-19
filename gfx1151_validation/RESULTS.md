@@ -58,3 +58,10 @@ Fixtures + harness vendored from the CUDA-Bridge project (same owner) as the num
 → residual → RMSNorm → SwiGLU MLP 3×cuBLAS → residual), graded vs an independent pure-Python
 fp64 oracle. 3 seeds, all PASS, n_fail=0/384, max_abs ~1–2e-6 (rtol 1e-4/atol 1e-5 — appropriate
 for a ~12-op fp32 chain). Proves the op set composes, not just individual ops.
+
+## Deep stack (rung 2.75) — PASS
+`zluda_stack.py` stacks N decoder layers (residual stream device-resident) + final RMSNorm +
+LM-head GEMM → logits. 6/12/**28** layers (28 = Qwen3-0.6B depth) all PASS: n_fail=0/288,
+max_abs ~7e-7 (stable across depth), and the **last-token argmax matches the fp64 oracle at every
+depth** — a greedy decode would emit the same token. The whole-transformer forward *structure*
+composes correctly through ZLUDA; real-weight Qwen3-0.6B grading is the remaining rung-3 step.

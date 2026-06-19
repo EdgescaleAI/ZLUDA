@@ -446,3 +446,35 @@ gaps, not the PTX frontend.
 CUDA op suite (`red`, `%envreg`) are implemented and verified; every other non-PASS is now classified as a
 tensor-core MMA wall (no gfx1151 silicon), a rocBLAS library gap, a numeric/fast-math divergence, or a
 training-only op outside the inference workload. No green faked; no tolerance loosened.
+
+## ★ Rung 11 — cuBLAS triangular-solve (`cublasStrsm_v2`/`cublasDtrsm_v2`) → rocBLAS redirect — PASS (2026-06-19)
+A LIBRARY-LAYER fix, not a PTX-frontend one — closing one of the two rocBLAS gaps left open at the end of rung 10.
+ggml's **SOLVE_TRI** op calls `cublasStrsm_v2`; ZLUDA exported the symbol but routed it to `unimplemented()` →
+`CUBLAS_STATUS_NOT_SUPPORTED`. The rocBLAS twin `rocblas_strsm`/`rocblas_dtrsm` exists and (both libraries being
+column-major BLAS) the parameters map 1:1, so this is a textbook redirect (ARCHITECTURE: redirect the heavy math).
+
+**Fix (commit a9f553a0, 3 files, userspace Rust):**
+- `zluda_common/src/lib.rs` — `FromCuda` for `cublasSideMode_t`→`rocblas_side`, `cublasFillMode_t`→`rocblas_fill`,
+  `cublasDiagType_t`→`rocblas_diagonal` (operation enum already existed), plus identity `FromCuda` for `*const/*mut f64`.
+- `zluda_blas/src/impl.rs` — `strsm_v2`/`dtrsm_v2` calling `rocblas()?.rocblas_strsm`/`rocblas_dtrsm`.
+- `zluda_blas/src/lib.rs` — `cublasStrsm_v2`/`cublasDtrsm_v2` added to the `implemented` list; `rocblas_strsm`/
+  `rocblas_dtrsm` added to the rocBLAS vtable.
+
+**Verification (commit c988c822 harness, `gfx1151_validation/rung11/`):** `trsm_test.cu` builds a well-conditioned
+triangular A and a known X, forms B = op(A)·X on host, then solves op(A)·X = B via `cublas?trsm_v2` through ZLUDA
+on gfx1151 and compares the recovered X to the known X (column-major). Run through ZLUDA (`libcublas.so` redirect →
+rocBLAS, `HSA_OVERRIDE_GFX_VERSION=11.5.1`). Covers side=LEFT across **{lower,upper} × {N,T} × {nonunit,unit}**
+plus a **double-precision** case — multiple shapes/configs/dtypes, so not a single lucky input:
+
+| case | m×n | max_abs_err |
+|------|-----|-------------|
+| S lower N nonunit | 64×8 | 9.537e-07 |
+| S upper N nonunit | 64×8 | 9.537e-07 |
+| S lower T nonunit | 48×16 | 5.960e-07 |
+| S lower N unit | 32×4 | 7.153e-07 |
+| D lower N nonunit | 64×8 | 1.110e-15 |
+
+`RUNG11_TRSM worst_err=9.537e-07 bad_cases=0 -> PASS` (log: `rung11/rung11_trsm_run.log`). The fp64 case at
+1.1e-15 confirms the redirect is numerically exact (the fp32 ~1e-6 errors are ordinary single-precision roundoff,
+well within a 1e-3 tolerance). **PASS** — a real implementation routing both precisions to their rocBLAS twin.
+Remaining rocBLAS-layer gap from rung 10: **TOP_K** (a sampling kernel, not a cuBLAS call — different fix path).

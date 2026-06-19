@@ -1,0 +1,56 @@
+++ date -u
+TRSM_RUN_START Fri Jun 19 08:21:27 UTC 2026
++ echo 'TRSM_RUN_START Fri Jun 19 08:21:27 UTC 2026'
++ export PATH=/usr/local/cuda-12.4/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
++ PATH=/usr/local/cuda-12.4/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
++ ZL=/root/ZLUDA/target/release
++ CUDALIB=/usr/local/cuda-12.4/lib64
++ cd /root/r11
++ nvcc -o trsm_test trsm_test.cu -I/usr/local/cuda-12.4/include -lcublas -lcudart -L/usr/local/cuda-12.4/lib64
++ tail -25
+NVCC_RC=0
++ echo NVCC_RC=0
++ cd /root/ZLUDA/target/release
++ '[' -e libnvcuda.so ']'
++ for s in libcuda.so libcuda.so.1
++ ln -sf libnvcuda.so libcuda.so
++ for s in libcuda.so libcuda.so.1
++ ln -sf libnvcuda.so libcuda.so.1
+libcublas.so
++ ls libcublas.so
++ for v in 11 12 13
++ '[' -e libcublas.so.11 ']'
++ for v in 11 12 13
++ '[' -e libcublas.so.12 ']'
++ for v in 11 12 13
++ '[' -e libcublas.so.13 ']'
+-rw-r--r--. 1 root root   2512 Jun 19 08:20 libcublas.d
+-rwxr-xr-x. 2 root root 478568 Jun 19 08:05 libcublas.so
+lrwxrwxrwx. 1 root root     12 Jun 19 08:20 libcublas.so.11 -> libcublas.so
+lrwxrwxrwx. 1 root root     12 Jun 19 08:20 libcublas.so.12 -> libcublas.so
+lrwxrwxrwx. 1 root root     12 Jun 19 08:20 libcublas.so.13 -> libcublas.so
+lrwxrwxrwx. 1 root root     14 Jun 19 08:20 libcublasLt.so -> libcublaslt.so
+lrwxrwxrwx. 1 root root     14 Jun 19 08:20 libcublasLt.so.11 -> libcublaslt.so
+lrwxrwxrwx. 1 root root     14 Jun 19 08:20 libcublasLt.so.12 -> libcublaslt.so
+lrwxrwxrwx. 1 root root     14 Jun 19 08:20 libcublasLt.so.13 -> libcublaslt.so
+-rw-r--r--. 1 root root   2413 Jun 19 08:20 libcublaslt.d
++ ls -la libcublas.d libcublas.so libcublas.so.11 libcublas.so.12 libcublas.so.13 libcublasLt.so libcublasLt.so.11 libcublasLt.so.12 libcublasLt.so.13 libcublaslt.d libcublaslt.so libcuda.so libcuda.so.1
++ head
++ cd /root/r11
++ export LD_LIBRARY_PATH=/root/ZLUDA/target/release:/usr/local/cuda-12.4/lib64:/opt/rocm/lib
++ LD_LIBRARY_PATH=/root/ZLUDA/target/release:/usr/local/cuda-12.4/lib64:/opt/rocm/lib
++ export HSA_OVERRIDE_GFX_VERSION=11.5.1
++ HSA_OVERRIDE_GFX_VERSION=11.5.1
++ ./trsm_test
+./trsm_test: /root/ZLUDA/target/release/libcublas.so.12: no version information available (required by ./trsm_test)
+CASE S lower N nonunit      m=64 n=8 -> max_abs_err=9.537e-07
+CASE S upper N nonunit      m=64 n=8 -> max_abs_err=9.537e-07
+CASE S lower T nonunit      m=48 n=16 -> max_abs_err=5.960e-07
+CASE S lower N unit         m=32 n=4 -> max_abs_err=7.153e-07
+CASE D lower N nonunit      m=64 n=8 -> max_abs_err=1.110e-15
+RUNG11_TRSM worst_err=9.537e-07 bad_cases=0 -> PASS
++ echo TRSM_RUN_RC=0
+++ date -u
++ echo 'TRSM_RUN_DONE Fri Jun 19 08:21:28 UTC 2026'
+TRSM_RUN_RC=0
+TRSM_RUN_DONE Fri Jun 19 08:21:28 UTC 2026

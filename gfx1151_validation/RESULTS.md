@@ -257,3 +257,26 @@ the full 151k vocab. This closes the end-to-end real-image VLM rung. (Build note
 
 Repro: `HSA_OVERRIDE_GFX_VERSION=11.5.1 LD_LIBRARY_PATH=<zluda>:<nvrtc>:/opt/rocm/lib python3 zluda_e2e.py`
 (pod deps: torch==2.12.1+cpu, **torchvision**, transformers, pillow, numpy, nvidia-cuda-nvrtc-cu12)
+
+## ★★★ Rung 8.5 — real-image VLM forward with the ATTENTION matmuls ALSO through ZLUDA — PASS
+Rung 8 routed every nn.Linear GEMM through ZLUDA. `zluda_e2e_sdpa.py` adds the *other* dominant FLOP class:
+it also monkeypatches `F.scaled_dot_product_attention` so the per-head **QK^T** and **softmax·V** batched
+matmuls run on gfx1151 through ZLUDA→rocBLAS (host keeps the scale+mask+softmax nonlinearity). Same real
+image, same model (`attn_implementation="sdpa"`), oracle = unpatched torch-CPU fp32.
+
+| metric | value |
+|---|---|
+| F.linear projection GEMMs through ZLUDA | 301 |
+| attention QK^T GEMMs through ZLUDA | **832** |
+| attention softmax·V GEMMs through ZLUDA | **832** |
+| total GEMMs on gfx1151 via ZLUDA | **1,965** |
+| top-10 ids (ZLUDA vs HF) | EXACT in order |
+| argmax / top5 / top10-set match | True / True / True |
+| max_logit_diff (top-10 / all-vocab) | **0.0000 / 0.0001** |
+| **VERDICT** | **PASS** |
+
+Now BOTH the projection GEMMs and the attention score/context matmuls of the literal target workload execute
+on gfx1151 through ZLUDA, end-to-end, on a real image — the next-token distribution still matches CPU to 1e-4
+across the full 151k vocab.
+
+Repro: `HSA_OVERRIDE_GFX_VERSION=11.5.1 LD_LIBRARY_PATH=<zluda>:<nvrtc>:/opt/rocm/lib python3 zluda_e2e_sdpa.py`

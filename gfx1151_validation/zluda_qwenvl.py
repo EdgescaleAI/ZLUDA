@@ -85,11 +85,14 @@ def build_ids():
     from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained(MODEL)
     msgs = [{"role": "user", "content": "The capital of France is"}]
+    ids = None
     try:
-        ids = tok.apply_chat_template(msgs, add_generation_prompt=True)
+        ids = tok.apply_chat_template(msgs, add_generation_prompt=True, tokenize=True)
     except Exception:
+        ids = None
+    if not ids or not all(isinstance(t, int) for t in ids):
         ids = tok("The capital of France is").input_ids
-    return list(ids)
+    return [int(t) for t in ids]
 
 def main():
     W, cfg, ids, ref = load_weights_vl()

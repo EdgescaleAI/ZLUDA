@@ -170,6 +170,11 @@ match** HF in identical order, `top5_match=True`, `top10_setmatch=True`, **`max_
 prompt. Matching 10 logits to 4 dp across a 152k vocab on a real 28-layer 2B model, on 4 inputs, is
 conclusive — the real Qwen3-VL text tower runs correctly through ZLUDA on gfx1151.
 
+**Greedy decode capstone:** a 12-token greedy continuation through ZLUDA is **token-for-token identical** to
+HF's own greedy generation — prompt "The capital of France is" → both produce " Paris, and the capital of
+Spain is Madrid. If the". The real target-architecture model generates coherent, identical text through ZLUDA
+on gfx1151 (the autoregressive decode loop, not just one forward, is correct on real weights).
+
 Not yet done (honest top): the real Qwen3-VL **vision** tower end-to-end with real image input requires
 matching HF's exact Qwen3-VL ViT internals (windowed attention, deepstack merger) — deliberately out of
 scope vs the spec-composition harnesses (rung 6.5 proved the vision op set composes; matching HF vision
